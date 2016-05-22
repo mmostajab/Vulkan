@@ -4,11 +4,11 @@
 
 int main() {
 
-	Renderer renderer;
+	std::shared_ptr<Renderer> renderer = std::make_shared<Renderer>();
 
-	renderer.createWindow(800, 600, "Test");
+	renderer->createWindow(800, 600, "Test");
 
-	while (renderer.run()) {
+	while (renderer->run()) {
 
 	}
 

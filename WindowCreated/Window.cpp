@@ -1,6 +1,9 @@
 #include "Window.h"
 
-Window::Window(uint32_t x, uint32_t y, std::string name):
+#include "Renderer.h"
+
+Window::Window(std::shared_ptr<Renderer> r, uint32_t x, uint32_t y, std::string name):
+	renderer(r),
 	surface_size_x(x),
 	surface_size_y(y),
 	window_name(name)

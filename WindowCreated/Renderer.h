@@ -4,9 +4,10 @@
 #include <memory>
 
 #include "Platform.h"
-#include "Window.h"
 
-class Renderer
+class Window;
+
+class Renderer : public std::enable_shared_from_this<Renderer>
 {
 public:
 	Renderer();
@@ -16,6 +17,12 @@ public:
 	
 
 	bool    run();
+
+	const VkInstance					getVulkanInstance() const;
+	const VkPhysicalDevice				getVulkanPhysicalDevice() const;
+	const VkPhysicalDeviceProperties&	getVulkanPhysicalDeviceProperties() const;
+	const VkDevice						getVulkanDevice() const;
+	const uint32_t						getVulkanGraphicsQueueFamilyIndex() const;
 
 //private:
 	void initInstance();

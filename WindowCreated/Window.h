@@ -3,10 +3,13 @@
 #include "Platform.h"
 
 #include <string>
+#include <memory>
+
+class Renderer;
 
 class Window {
 public:
-	Window(uint32_t x, uint32_t y, std::string name);
+	Window(std::shared_ptr<Renderer> r, uint32_t x, uint32_t y, std::string name);
 	~Window();
 
 	void close();
@@ -21,10 +24,12 @@ private:
 	void updateOSWindow();
 	void initOSSurface();
 
-	uint32_t    surface_size_x    = 512;
-	uint32_t    surface_size_y    = 512;
-	std::string window_name;
-	bool        windowIsRunning   = false;
+	uint32_t					surface_size_x    = 512;
+	uint32_t					surface_size_y    = 512;
+	std::string					window_name       = "Test Window";
+	bool						windowIsRunning   = false;
+
+	std::shared_ptr<Renderer>	renderer          = nullptr;
 
 #ifdef VK_USE_PLATFORM_WIN32_KHR
 	HINSTANCE        win32_instance			= NULL;

@@ -37,7 +37,7 @@ void Window::initWindow()
 	assert(surface_size_x > 0);
 	assert(surface_size_y > 0);
 
-	win32_instance = GetModuleHandle(nullptr);
+	win32_instance = GetModuleHandleA(nullptr);
 	win32_class_name = window_name + "_" + std::to_string(win32_class_id_counter);
 	win32_class_id_counter++;
 
@@ -85,7 +85,7 @@ void Window::initWindow()
 		fflush(stdout);
 		std::exit(-1);
 	}
-	SetWindowLongPtr(win32_window, GWLP_USERDATA, (LONG_PTR)this);
+	SetWindowLongPtrA(win32_window, GWLP_USERDATA, (LONG_PTR)this);
 
 	ShowWindow(win32_window, SW_SHOW);
 	SetForegroundWindow(win32_window);

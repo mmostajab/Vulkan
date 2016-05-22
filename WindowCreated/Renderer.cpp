@@ -9,6 +9,7 @@
 #include "Helper.h"
 #include "BUILD_OPTIONS.h"
 #include "Platform.h"
+#include "Window.h"
 
 Renderer::Renderer()
 {
@@ -28,7 +29,7 @@ Renderer::~Renderer()
 
 void Renderer::createWindow(uint32_t x, uint32_t y, std::string name)
 {
-	window = std::make_unique<Window>( x, y, name );
+	window = std::make_unique<Window>( shared_from_this(), x, y, name );
 }
 
 bool Renderer::run()
@@ -36,6 +37,31 @@ bool Renderer::run()
 	if(nullptr != window)
 		return window->update();
 	return false;
+}
+
+const VkInstance Renderer::getVulkanInstance() const
+{
+	return vkInstance;
+}
+
+const VkPhysicalDevice Renderer::getVulkanPhysicalDevice() const
+{
+	return gpu;
+}
+
+const VkPhysicalDeviceProperties& Renderer::getVulkanPhysicalDeviceProperties() const
+{
+	return gpu_properties;
+}
+
+const VkDevice Renderer::getVulkanDevice() const
+{
+	return vkDevice;
+}
+
+const uint32_t Renderer::getVulkanGraphicsQueueFamilyIndex() const
+{
+	return graphicsFamilyIdx;
 }
 
 void Renderer::initInstance()
