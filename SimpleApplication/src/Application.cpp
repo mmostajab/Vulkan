@@ -29,6 +29,23 @@ void Application::init(const unsigned int& width, const unsigned int& height) {
     if (!glfwInit())
         exit(EXIT_FAILURE);
 
+	if (glfwVulkanSupported() == GLFW_TRUE) {
+		std::cout << "Vulkan is supported.\n";
+	}
+	else {
+		std::cout << "Vulkan is not supported.\n";
+		exit(-1);
+	}
+
+	std::vector<const char*> extensions;
+	uint32_t extensionCount;
+	const char** extensionsArr = glfwGetRequiredInstanceExtensions(&extensionCount);
+	for (uint32_t i = 0; i < extensionCount; i++) extensions.push_back(extensionsArr[i]);
+	
+	// initializes the renderer.
+	renderer.init("SimpleVulkanApplication", extensions);
+	
+	// create a window
     m_window = glfwCreateWindow(width, height, "Simple Vulkan Application", NULL, NULL);
     if (!m_window)
     {
@@ -36,7 +53,8 @@ void Application::init(const unsigned int& width, const unsigned int& height) {
         exit(EXIT_FAILURE);
     }
 
-    glfwMakeContextCurrent(m_window);
+	// init the surface
+	renderer.createWindowSurface(m_window);
 
     glfwSetKeyCallback(m_window, ::key_callback);
     glfwSetWindowSizeCallback(m_window, ::WindowSizeCB);
@@ -198,9 +216,10 @@ void Application::run() {
 }
 
 void Application::shutdown() {
-  glfwDestroyWindow(m_window);
-  glfwTerminate();
-  exit(EXIT_SUCCESS);
+	renderer.deInit();
+	glfwDestroyWindow(m_window);
+	glfwTerminate();
+	exit(EXIT_SUCCESS);
 }
 
 Application::~Application() {
@@ -360,7 +379,7 @@ void Application::WindowSizeCB(GLFWwindow* window, int width, int height) {
 
 void Application::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
   if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-    glfwSetWindowShouldClose(window, GL_TRUE);
+    glfwSetWindowShouldClose(window, VK_TRUE);
 
   if (key == GLFW_KEY_LEFT_CONTROL && action == GLFW_PRESS){
     double xpos, ypos;

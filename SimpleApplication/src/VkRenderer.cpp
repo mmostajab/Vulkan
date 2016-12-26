@@ -7,25 +7,66 @@
 #include <vector>
 #include <sstream>
 
-#ifdef _WIN32
-	// Windows
-	#include <Windows.h>
-#endif
+
 
 VkRenderer::VkRenderer()
 {
-	setupDebug();
-	initInstance("test");
-	initDebug();
-	initDevice();
 }
 
 
 VkRenderer::~VkRenderer()
 {
+}
+
+void VkRenderer::init(const char* applicationName, const std::vector<const char*>& requiredExtensions)
+{
+	setupDebug(requiredExtensions);
+	initInstance(applicationName);
+	initDebug();
+	initDevice();
+}
+
+void VkRenderer::createWindowSurface(GLFWwindow * windowPtr)
+{
+	ErrorCheck(glfwCreateWindowSurface(vkInstance, windowPtr, nullptr, &vkSurface));
+}
+
+void VkRenderer::deInit() {
+	vkDestroySurfaceKHR(vkInstance, vkSurface, nullptr);
+
 	deInitDevice();
 	deInitDebug();
 	deInitInstance();
+}
+
+const VkInstance VkRenderer::getVkInstance() const
+{
+	return vkInstance;
+}
+
+const VkPhysicalDevice VkRenderer::getVkPhysicalDevice() const
+{
+	return vkGPU;
+}
+
+const VkDevice VkRenderer::getVkDevice() const
+{
+	return vkDevice;
+}
+
+const VkQueue VkRenderer::getVkQueue() const
+{
+	return vkQueue;
+}
+
+const uint32_t VkRenderer::getVkGraphicsQueueFamilyIndex() const
+{
+	return vkGraphicsFamilyIndex;
+}
+
+const VkPhysicalDeviceProperties & VkRenderer::getVkPhysicalDeviceProperties() const
+{
+	return vkGPUProperties;
 }
 
 void VkRenderer::initInstance(const char* applicationName)
@@ -107,24 +148,32 @@ void VkRenderer::initDevice()
 	// ========================================
 	// Physical Device Properties extraction
 	// ========================================
-	VkPhysicalDeviceProperties physicalDeviceProperties;
-	vkGetPhysicalDeviceProperties(vkGPU, &physicalDeviceProperties);
-	std::cout << "Device Name = " << physicalDeviceProperties.deviceName << std::endl;
-	std::cout << "Device Type = " << getDeviceTypeString(physicalDeviceProperties.deviceType) << std::endl;
-	std::cout << "Device API version = " << getAPIVersionString(physicalDeviceProperties.apiVersion) << std::endl;	
+	vkGetPhysicalDeviceProperties(vkGPU, &vkGPUProperties);
+	std::cout << "Device Name = " << vkGPUProperties.deviceName << std::endl;
+	std::cout << "Device Type = " << getDeviceTypeString(vkGPUProperties.deviceType) << std::endl;
+	std::cout << "Device API version = " << getAPIVersionString(vkGPUProperties.apiVersion) << std::endl;
 	
 	// ========================================
 	// Physical Device Queue Family extraction
 	// ========================================
+#if 1
 	uint32_t numPhysicalDeviceQueueFamilyCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(vkGPU, &numPhysicalDeviceQueueFamilyCount, nullptr);
 	std::vector<VkQueueFamilyProperties> physicalDeviceQueueFamilyPropertiesList(numPhysicalDeviceQueueFamilyCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(vkGPU, &numPhysicalDeviceQueueFamilyCount, physicalDeviceQueueFamilyPropertiesList.data());
 	bool found = false;
 	for (uint32_t i = 0; i < physicalDeviceQueueFamilyPropertiesList.size(); i++) {
+#if 0
 		if (physicalDeviceQueueFamilyPropertiesList[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 			found = true;
 			vkGraphicsFamilyIndex = i;
+			break;
+		}
+#endif
+		if (glfwGetPhysicalDevicePresentationSupport(vkInstance, vkGPU, i) == GLFW_TRUE) {
+			found = true;
+			vkGraphicsFamilyIndex = i;
+			break;
 		}
 	}
 
@@ -132,6 +181,7 @@ void VkRenderer::initDevice()
 		assert(0 && "Vulkan ERROR: Queue family supporting graphics not found.");
 		std::exit(-1);
 	}
+#endif
 
 	// ==================================================
 	// Layers extraction: Instance
@@ -170,6 +220,8 @@ void VkRenderer::initDevice()
 	//deviceCreateInfo.ppEnabledLayerNames		= vkLayerList.data();
 
 	ErrorCheck( vkCreateDevice(vkGPU, &deviceCreateInfo, nullptr, &vkDevice) );
+
+	vkGetDeviceQueue(vkDevice, vkGraphicsFamilyIndex, 0, &vkQueue);
 }
 
 void VkRenderer::deInitDevice()
@@ -219,8 +271,10 @@ VKAPI_ATTR VkBool32 VulkanDebugCallBackFunc(
 	return false; // Go to the upper layer.
 }
 
-void VkRenderer::setupDebug()
+void VkRenderer::setupDebug(const std::vector<const char*>& requiredExtensions)
 {
+
+
 	//vkLayerList.push_back("VK_LAYER_LUNARG_api_dump");
 	vkLayerList.push_back("VK_LAYER_LUNARG_core_validation");
 	//vkLayerList.push_back("VK_LAYER_LUNARG_monitor");
@@ -236,6 +290,7 @@ void VkRenderer::setupDebug()
 	//vkLayerList.push_back("VK_LAYER_LUNARG_standard_validation");
 
 	vkExtensionsList.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+	vkExtensionsList.insert(vkExtensionsList.end(), requiredExtensions.begin(), requiredExtensions.end());
 
 	debugReportCallbackCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
 	debugReportCallbackCreateInfo.pfnCallback = (PFN_vkDebugReportCallbackEXT)VulkanDebugCallBackFunc;

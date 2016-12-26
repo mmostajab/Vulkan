@@ -4,6 +4,8 @@
 #include "helper.h"
 
 // Graphics Library - Vulkan
+#include "VkRenderer.h"
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include "glm/glm.hpp"
 #include <vulkan/vulkan.h>
@@ -14,7 +16,6 @@
 #include <stdio.h>
 
 #include "Navigation.h"
-#include "VkRenderer.h"
 
 struct SAMPLE_POINTS {
     glm::vec4     point[256];
@@ -68,8 +69,6 @@ private:
 
     void compileShaders();
 
-    GLuint simple_program;
-
 private:
 	// Navigation
 	Navigation m_navigation;
@@ -88,13 +87,7 @@ private:
 	double       m_arcBallRadius;
     unsigned int m_width, m_height;
 
-
-    GLuint m_coord_system_program;
-
-	  // Uniform Buffers
-    GLuint m_transformation_buffer, m_lighting_buffer, m_general_buffer;
-	
-	  // Clear values for color (background) and depth buffer.
+	// Clear values for color (background) and depth buffer.
     glm::vec4 back_color;
     float     one;
    
@@ -112,7 +105,7 @@ private:
 
 
 	// Vulkan 
-	VkRenderer renderer;
+	VkRenderer   renderer;
 };
 
 #endif
