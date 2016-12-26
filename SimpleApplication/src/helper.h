@@ -1,24 +1,22 @@
 #ifndef __HELPER_H__
 #define __HELPER_H__
 
+// STD
 #include <string>
 #include <iostream>
 #include <fstream>
 #include <vector>
+
+// GLM
 #include "glm/glm.hpp"
 
-
-static std::string convertFileToString(const std::string& filename);
+// Vulkan
+#include <vulkan/vulkan.h>
 
 // read the file content and generate a string from it.
-static std::string convertFileToString(const std::string& filename) {
-    std::ifstream ifile(filename);
-    if (!ifile){
-        return std::string("");
-    }
+std::string convertFileToString(const std::string& filename);
 
-    return std::string(std::istreambuf_iterator<char>(ifile), (std::istreambuf_iterator<char>()));
-
-}
+// Checks the error result from a vulkan call.
+void ErrorCheck(VkResult result);
 
 #endif

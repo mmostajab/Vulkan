@@ -24,15 +24,15 @@ private:
 	void initDebug();
 	void deInitDebug();
 
-	VkInstance			vkInstance = nullptr;
-	VkDevice			vkDevice   = nullptr;
-	VkPhysicalDevice	vkGPU      = nullptr;
-	uint32_t            vkGraphicsFamilyIndex = 0;
+	VkInstance			vkInstance				= VK_NULL_HANDLE;
+	VkDevice			vkDevice				= VK_NULL_HANDLE;
+	VkPhysicalDevice	vkGPU					= VK_NULL_HANDLE;
+	uint32_t            vkGraphicsFamilyIndex	= 0;
 
-	std::vector<const char*> vkValidationLayerList;
+	std::vector<const char*> vkLayerList;
 	std::vector<const char*> vkExtensionsList;
 
-	VkDebugReportCallbackEXT debugReport = nullptr;
+	VkDebugReportCallbackEXT debugReport		= VK_NULL_HANDLE;
 	VkDebugReportCallbackCreateInfoEXT debugReportCallbackCreateInfo = {};
 };
 

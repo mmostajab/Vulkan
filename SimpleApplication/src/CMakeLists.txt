@@ -20,6 +20,7 @@ set(SimpleVkApplicationSources
 	zoom.cpp
 	Navigation.cpp
 	translationPan.cpp
+        helper.cpp
        
         VkRenderer.cpp
 )

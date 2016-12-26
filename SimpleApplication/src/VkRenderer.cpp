@@ -1,4 +1,5 @@
 #include "VkRenderer.h"
+#include "helper.h"
 
 // STD
 #include <iostream>
@@ -40,15 +41,13 @@ void VkRenderer::initInstance(const char* applicationName)
 	instanceCreateInfo.pApplicationInfo = &applicationInfo;
 	instanceCreateInfo.enabledExtensionCount   = static_cast<uint32_t>(vkExtensionsList.size());
 	instanceCreateInfo.ppEnabledExtensionNames = vkExtensionsList.data();
-	instanceCreateInfo.enabledLayerCount       = static_cast<uint32_t>(vkValidationLayerList.size());
-	instanceCreateInfo.ppEnabledLayerNames     = vkValidationLayerList.data();
+	instanceCreateInfo.enabledLayerCount       = static_cast<uint32_t>(vkLayerList.size());
+	instanceCreateInfo.ppEnabledLayerNames     = vkLayerList.data();
+
+	// Magically, make you able to debug instance creation.
 	instanceCreateInfo.pNext                   = &debugReportCallbackCreateInfo;
 
-	auto err = vkCreateInstance(&instanceCreateInfo, nullptr, &vkInstance);
-	if (VK_SUCCESS != err) {
-		assert(1 && "Vulkan Error: Create Instance failed.");
-		std::exit(-1);
-	}
+	ErrorCheck( vkCreateInstance(&instanceCreateInfo, nullptr, &vkInstance) );
 }
 
 void VkRenderer::deInitInstance()
@@ -130,22 +129,23 @@ void VkRenderer::initDevice()
 	}
 
 	if (!found) {
-		assert(1 && "Vulkan ERROR: Queue family supporting graphics not found.");
+		assert(0 && "Vulkan ERROR: Queue family supporting graphics not found.");
 		std::exit(-1);
 	}
 
 	// ==================================================
-	// Validation Layers extraction: Instance
+	// Layers extraction: Instance
 	// ==================================================
-	uint32_t instanceValidationLayerCount = 0;
-	vkEnumerateInstanceLayerProperties(&instanceValidationLayerCount, nullptr);
-	std::vector<VkLayerProperties> instanceValidationLayerPropertyList(instanceValidationLayerCount);
-	vkEnumerateInstanceLayerProperties(&instanceValidationLayerCount, instanceValidationLayerPropertyList.data());
-	std::cout << "Instance Layers " << std::endl;
-	for (auto& i : instanceValidationLayerPropertyList) {
+	uint32_t instanceLayerCount = 0;
+	vkEnumerateInstanceLayerProperties(&instanceLayerCount, nullptr);
+	std::vector<VkLayerProperties> instanceLayerPropertyList(instanceLayerCount);
+	vkEnumerateInstanceLayerProperties(&instanceLayerCount, instanceLayerPropertyList.data());
+	// Output available layers
+	/*std::cout << "Instance Layers " << std::endl;
+	for (auto& i : instanceLayerPropertyList) {
 		std::cout << "\t" << i.layerName << "\t | " << i.description << std::endl;
 	}
-	std::cout << std::endl;
+	std::cout << std::endl;*/
 
 	// ========================================
 	// Queue Create Information
@@ -164,12 +164,12 @@ void VkRenderer::initDevice()
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	deviceCreateInfo.queueCreateInfoCount		= 1;
 	deviceCreateInfo.pQueueCreateInfos			= &deviceQueueCreateInfo;
-	deviceCreateInfo.enabledExtensionCount		= static_cast<uint32_t>(vkExtensionsList.size());
-	deviceCreateInfo.ppEnabledExtensionNames	= vkExtensionsList.data();
-	deviceCreateInfo.enabledLayerCount			= static_cast<uint32_t>(vkValidationLayerList.size());
-	deviceCreateInfo.ppEnabledLayerNames		= vkValidationLayerList.data();
+	//deviceCreateInfo.enabledExtensionCount	= static_cast<uint32_t>(vkExtensionsList.size());
+	//deviceCreateInfo.ppEnabledExtensionNames	= vkExtensionsList.data();
+	//deviceCreateInfo.enabledLayerCount		= static_cast<uint32_t>(vkLayerList.size());
+	//deviceCreateInfo.ppEnabledLayerNames		= vkLayerList.data();
 
-	vkCreateDevice(vkGPU, &deviceCreateInfo, nullptr, &vkDevice);
+	ErrorCheck( vkCreateDevice(vkGPU, &deviceCreateInfo, nullptr, &vkDevice) );
 }
 
 void VkRenderer::deInitDevice()
@@ -221,30 +221,30 @@ VKAPI_ATTR VkBool32 VulkanDebugCallBackFunc(
 
 void VkRenderer::setupDebug()
 {
-	//vkValidationLayerList.push_back("VK_LAYER_LUNARG_api_dump");
-	vkValidationLayerList.push_back("VK_LAYER_LUNARG_core_validation");
-	//vkValidationLayerList.push_back("VK_LAYER_LUNARG_monitor");
-	vkValidationLayerList.push_back("VK_LAYER_GOOGLE_threading");
-	vkValidationLayerList.push_back("VK_LAYER_LUNARG_swapchain");
-	vkValidationLayerList.push_back("VK_LAYER_LUNARG_image");
-	vkValidationLayerList.push_back("VK_LAYER_LUNARG_object_tracker");
-	vkValidationLayerList.push_back("VK_LAYER_GOOGLE_unique_objects");
-	vkValidationLayerList.push_back("VK_LAYER_LUNARG_parameter_validation");
-	//vkValidationLayerList.push_back("VK_LAYER_LUNARG_screenshot");
-	//vkValidationLayerList.push_back("VK_LAYER_LUNARG_vktrace");
-	//vkValidationLayerList.push_back("VK_LAYER_RENDERDOC_Capture");
-	//vkValidationLayerList.push_back("VK_LAYER_LUNARG_standard_validation");
+	//vkLayerList.push_back("VK_LAYER_LUNARG_api_dump");
+	vkLayerList.push_back("VK_LAYER_LUNARG_core_validation");
+	//vkLayerList.push_back("VK_LAYER_LUNARG_monitor");
+	vkLayerList.push_back("VK_LAYER_GOOGLE_threading");
+	vkLayerList.push_back("VK_LAYER_LUNARG_swapchain");
+	vkLayerList.push_back("VK_LAYER_LUNARG_image");
+	vkLayerList.push_back("VK_LAYER_LUNARG_object_tracker");
+	vkLayerList.push_back("VK_LAYER_GOOGLE_unique_objects");
+	vkLayerList.push_back("VK_LAYER_LUNARG_parameter_validation");
+	//vkLayerList.push_back("VK_LAYER_LUNARG_screenshot");
+	//vkLayerList.push_back("VK_LAYER_LUNARG_vktrace");
+	//vkLayerList.push_back("VK_LAYER_RENDERDOC_Capture");
+	//vkLayerList.push_back("VK_LAYER_LUNARG_standard_validation");
 
 	vkExtensionsList.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 
 	debugReportCallbackCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
 	debugReportCallbackCreateInfo.pfnCallback = (PFN_vkDebugReportCallbackEXT)VulkanDebugCallBackFunc;
 	debugReportCallbackCreateInfo.flags =
-		VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
+		//VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
 		VK_DEBUG_REPORT_WARNING_BIT_EXT |
 		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
-		VK_DEBUG_REPORT_ERROR_BIT_EXT |
-		VK_DEBUG_REPORT_DEBUG_BIT_EXT;
+		VK_DEBUG_REPORT_ERROR_BIT_EXT;// |
+		//VK_DEBUG_REPORT_DEBUG_BIT_EXT;
 }
 
 PFN_vkCreateDebugReportCallbackEXT	fvkCreateDebugReportCallBackExt = nullptr;
@@ -255,7 +255,7 @@ void VkRenderer::initDebug()
 	fvkCreateDebugReportCallBackExt  = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(vkInstance, "vkCreateDebugReportCallbackEXT");
 	fvkDestroyDebugReportCallBackExt = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(vkInstance, "vkDestroyDebugReportCallbackEXT");
 	if (fvkCreateDebugReportCallBackExt == nullptr || fvkDestroyDebugReportCallBackExt == nullptr) {
-		assert(1 && "Vulkan ERROR: cannot fetch debug function pointers.");
+		assert(0 && "Vulkan ERROR: cannot fetch debug function pointers.");
 		exit(-1);
 	}	
 
