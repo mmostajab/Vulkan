@@ -71,3 +71,18 @@ void ErrorCheck(VkResult result)
 		assert(0 && "Vulkan runtime error.");
 	}
 }
+
+uint32_t FindVkMemoryTypeIndex(const VkPhysicalDeviceMemoryProperties & gpuMemProperties, const VkMemoryRequirements & memRequirements, const VkMemoryPropertyFlags & memProperties){
+	uint32_t	vkMemTypeIndex = UINT32_MAX;
+	for (uint32_t i = 0; i < gpuMemProperties.memoryTypeCount; i++) {
+		if (memRequirements.memoryTypeBits & (1 << i)) {
+			if ((gpuMemProperties.memoryTypes[i].propertyFlags & memProperties) == memProperties) {
+				vkMemTypeIndex = i;
+				break;
+			}
+		}
+	}
+
+	assert(vkMemTypeIndex != UINT32_MAX);
+	return vkMemTypeIndex;
+}

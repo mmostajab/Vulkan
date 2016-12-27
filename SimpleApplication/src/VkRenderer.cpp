@@ -60,10 +60,15 @@ void VkRenderer::createWindowSurface(GLFWwindow * windowPtr)
 	}
 
 	initSwapChain();
+	initSwapChainImages();
+	initDepthStencilImage();
 }
 
-void VkRenderer::deInit() {
-	deinitSwapChain();
+void VkRenderer::deInit() 
+{
+	deInitDepthStencilImage();
+	deInitSwapChainImages();
+	deInitSwapChain();
 	vkDestroySurfaceKHR(vkInstance, vkSurface, nullptr);
 	deInitDevice();
 	deInitDebug();
@@ -98,6 +103,11 @@ const uint32_t VkRenderer::getVkGraphicsQueueFamilyIndex() const
 const VkPhysicalDeviceProperties & VkRenderer::getVkPhysicalDeviceProperties() const
 {
 	return vkGPUProperties;
+}
+
+const VkPhysicalDeviceMemoryProperties & VkRenderer::getVkPhysicalDeviceMemProperties() const
+{
+	return vkGPUMemProperties;
 }
 
 void VkRenderer::initInstance(const char* applicationName)
@@ -184,6 +194,11 @@ void VkRenderer::initDevice(const std::vector<const char*>& deviceExtensions)
 	std::cout << "Device Type = " << getDeviceTypeString(vkGPUProperties.deviceType) << std::endl;
 	std::cout << "Device API version = " << getAPIVersionString(vkGPUProperties.apiVersion) << std::endl;
 	
+	// =============================================
+	// Physical Device Memory Properties extraction
+	// =============================================
+	vkGetPhysicalDeviceMemoryProperties(vkGPU, &vkGPUMemProperties);
+
 	// ========================================
 	// Physical Device Queue Family extraction
 	// ========================================
@@ -393,8 +408,148 @@ void VkRenderer::initSwapChain()
 	vkGetSwapchainImagesKHR(vkDevice, vkSwapChain, &vkSwapChainImageCount, nullptr);
 }
 
-void VkRenderer::deinitSwapChain()
+void VkRenderer::deInitSwapChain()
 {
 	vkDestroySwapchainKHR(vkDevice, vkSwapChain, nullptr);
 	vkSwapChain = VK_NULL_HANDLE;
+}
+
+void VkRenderer::initSwapChainImages()
+{
+	vkSwapChainImages.resize(vkSwapChainImageCount);
+	vkSwapChainImageViews.resize(vkSwapChainImageCount);
+
+	ErrorCheck( vkGetSwapchainImagesKHR(vkDevice, vkSwapChain, &vkSwapChainImageCount, vkSwapChainImages.data()) );
+
+	for (uint32_t i = 0; i < vkSwapChainImageCount; i++) {
+		VkImageViewCreateInfo imageViewCreateInfo{};
+		imageViewCreateInfo.sType							= VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		imageViewCreateInfo.image							= vkSwapChainImages[i];
+		imageViewCreateInfo.viewType						= VK_IMAGE_VIEW_TYPE_2D;
+		imageViewCreateInfo.format							= vkSurfaceFormat.format;
+		imageViewCreateInfo.components.r					= VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.components.g					= VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.components.b					= VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.subresourceRange.aspectMask		= VK_IMAGE_ASPECT_COLOR_BIT;
+		imageViewCreateInfo.subresourceRange.baseMipLevel	= 0;
+		imageViewCreateInfo.subresourceRange.levelCount		= 1;
+		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+		imageViewCreateInfo.subresourceRange.layerCount		= 1;
+		
+		ErrorCheck( vkCreateImageView(vkDevice, &imageViewCreateInfo, nullptr, &vkSwapChainImageViews[i]) );
+	}
+}
+
+void VkRenderer::deInitSwapChainImages()
+{
+	for(auto& view : vkSwapChainImageViews)
+		vkDestroyImageView(vkDevice, view, nullptr);
+}
+
+void VkRenderer::initDepthStencilImage()
+{
+	// ==========================================
+	// Detect porper depth stencil image format
+	// ==========================================
+
+	std::vector<VkFormat> try_formats{
+		VK_FORMAT_D32_SFLOAT_S8_UINT,
+		VK_FORMAT_D24_UNORM_S8_UINT,
+		VK_FORMAT_D16_UNORM_S8_UINT,
+		VK_FORMAT_D32_SFLOAT,
+		VK_FORMAT_D16_UNORM
+	};
+
+	for (auto f : try_formats) {
+		VkFormatProperties formatProperties{};
+		vkGetPhysicalDeviceFormatProperties(vkGPU, f, &formatProperties);
+		if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+			vkDepthStencilFormat = f;
+			break;
+		}
+	}
+
+	if (vkDepthStencilFormat == VK_FORMAT_UNDEFINED) {
+		assert(0 && "Depth Stencil format is undefined.");
+		exit(-1);
+	}
+
+
+	if (
+		vkDepthStencilFormat == VK_FORMAT_D32_SFLOAT_S8_UINT ||
+		vkDepthStencilFormat == VK_FORMAT_D24_UNORM_S8_UINT ||
+		vkDepthStencilFormat == VK_FORMAT_D16_UNORM_S8_UINT ||
+		vkDepthStencilFormat == VK_FORMAT_S8_UINT
+		) {
+		vkStencilBufferAvailable = true;
+	}
+
+	// ===============================
+	// Create Image Handle
+	// ===============================
+
+	VkImageCreateInfo imageCreateInfo{};
+	imageCreateInfo.sType					= VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageCreateInfo.flags					= 0;
+	imageCreateInfo.imageType				= VK_IMAGE_TYPE_2D;
+	imageCreateInfo.format					= vkDepthStencilFormat;
+	imageCreateInfo.extent.width			= vkSurfaceWidth;
+	imageCreateInfo.extent.height			= vkSurfaceHeight;
+	imageCreateInfo.extent.depth			= 1;
+	imageCreateInfo.mipLevels				= 1;
+	imageCreateInfo.arrayLayers				= 1;
+	imageCreateInfo.samples					= VK_SAMPLE_COUNT_1_BIT;
+	imageCreateInfo.tiling					= VK_IMAGE_TILING_OPTIMAL;
+	imageCreateInfo.usage					= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	imageCreateInfo.sharingMode				= VK_SHARING_MODE_EXCLUSIVE;
+	imageCreateInfo.queueFamilyIndexCount	= VK_QUEUE_FAMILY_IGNORED;
+	imageCreateInfo.pQueueFamilyIndices		= nullptr;
+	imageCreateInfo.initialLayout			= VK_IMAGE_LAYOUT_UNDEFINED;
+
+	
+	vkCreateImage(vkDevice, &imageCreateInfo, nullptr, &vkDepthStencilImage);
+
+	// ==================================
+	// Allocate Memory for the Image
+	// ==================================
+	VkMemoryRequirements imageMemRequirements{};
+	vkGetImageMemoryRequirements(vkDevice, vkDepthStencilImage, &imageMemRequirements);
+	
+	VkMemoryPropertyFlags requiredProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	uint32_t	vkMemTypeIndex = FindVkMemoryTypeIndex(vkGPUMemProperties, imageMemRequirements, requiredProperties);
+
+	VkMemoryAllocateInfo memAllocInfo{};
+	memAllocInfo.sType				= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	memAllocInfo.allocationSize		= imageMemRequirements.size;
+	memAllocInfo.memoryTypeIndex	= vkMemTypeIndex;
+
+	vkAllocateMemory(vkDevice, &memAllocInfo, nullptr, &vkDepthStencilImageMem);
+	vkBindImageMemory(vkDevice, vkDepthStencilImage, vkDepthStencilImageMem, 0);
+
+	// ============================================
+	// Create Image View for Depth Stencil Images
+	// ============================================
+
+	VkImageViewCreateInfo imageViewCreateInfo{};
+	imageViewCreateInfo.sType								= VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	imageViewCreateInfo.image								= vkDepthStencilImage;
+	imageViewCreateInfo.viewType							= VK_IMAGE_VIEW_TYPE_2D;
+	imageViewCreateInfo.format								= vkDepthStencilFormat;
+	imageViewCreateInfo.components.r						= VK_COMPONENT_SWIZZLE_IDENTITY;
+	imageViewCreateInfo.components.g						= VK_COMPONENT_SWIZZLE_IDENTITY;
+	imageViewCreateInfo.components.b						= VK_COMPONENT_SWIZZLE_IDENTITY;
+	imageViewCreateInfo.subresourceRange.aspectMask			= VK_IMAGE_ASPECT_DEPTH_BIT | (vkStencilBufferAvailable ? VK_IMAGE_ASPECT_STENCIL_BIT : 0);
+	imageViewCreateInfo.subresourceRange.baseMipLevel		= 0;
+	imageViewCreateInfo.subresourceRange.levelCount			= 1;
+	imageViewCreateInfo.subresourceRange.baseArrayLayer		= 0;
+	imageViewCreateInfo.subresourceRange.layerCount			= 1;
+
+	vkCreateImageView(vkDevice, &imageViewCreateInfo, nullptr, &vkDepthStencilImageView);
+}
+
+void VkRenderer::deInitDepthStencilImage()
+{
+	vkDestroyImageView(vkDevice, vkDepthStencilImageView, nullptr);
+	vkFreeMemory(vkDevice, vkDepthStencilImageMem, nullptr);
+	vkDestroyImage(vkDevice, vkDepthStencilImage, nullptr);
 }

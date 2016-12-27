@@ -19,4 +19,10 @@ std::string convertFileToString(const std::string& filename);
 // Checks the error result from a vulkan call.
 void ErrorCheck(VkResult result);
 
+// 
+uint32_t FindVkMemoryTypeIndex(
+	const VkPhysicalDeviceMemoryProperties& gpuMemProperties, 
+	const VkMemoryRequirements& memRequirements,
+	const VkMemoryPropertyFlags& memProperties);
+
 #endif
