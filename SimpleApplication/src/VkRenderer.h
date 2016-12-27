@@ -22,7 +22,7 @@ public:
 	VkRenderer();
 	~VkRenderer();
 
-	void init(const char* applicationName, const std::vector<const char*>& requiredExtensions);
+	void init(const char* applicationName, const std::vector<const char*>& instanceExtensions, const std::vector<const char*>& deviceExtensions);
 	void createWindowSurface(GLFWwindow* windowPtr);
 	void deInit();
 
@@ -38,25 +38,35 @@ private:
 	void initInstance(const char* applicationName);
 	void deInitInstance();
 
-	void initDevice();
+	void initDevice(const std::vector<const char*>& deviceExtension);
 	void deInitDevice();
 
 	void setupDebug(const std::vector<const char*>& requiredExtensions);
 	void initDebug();
 	void deInitDebug();
 
-	VkInstance			vkInstance				= VK_NULL_HANDLE;
-	VkDevice			vkDevice				= VK_NULL_HANDLE;
-	VkPhysicalDevice	vkGPU					= VK_NULL_HANDLE;
-	VkPhysicalDeviceProperties vkGPUProperties  = {};
-	uint32_t            vkGraphicsFamilyIndex	= 0;
-	VkQueue             vkQueue					= VK_NULL_HANDLE;
-	VkSurfaceKHR		vkSurface               = VK_NULL_HANDLE;
+	void initSwapChain();
+	void deinitSwapChain();
+
+	VkInstance						vkInstance				= VK_NULL_HANDLE;
+	VkDevice						vkDevice				= VK_NULL_HANDLE;
+	VkPhysicalDevice				vkGPU					= VK_NULL_HANDLE;
+	VkPhysicalDeviceProperties		vkGPUProperties			= {};
+	uint32_t						vkGraphicsFamilyIndex	= 0;
+	VkQueue						    vkQueue					= VK_NULL_HANDLE;
+	VkSurfaceKHR					vkSurface               = VK_NULL_HANDLE;
+	VkSwapchainKHR					vkSwapChain				= VK_NULL_HANDLE;
+	VkSurfaceCapabilitiesKHR		vkSurfaceCapabilities	= {};
+	VkSurfaceFormatKHR				vkSurfaceFormat			= {};
+	uint32_t						vkSurfaceWidth			= UINT32_MAX;
+	uint32_t						vkSurfaceHeight			= UINT32_MAX;
+	uint32_t						vkSwapChainImageCount   = 2;
 
 	std::vector<const char*> vkLayerList;
 	std::vector<const char*> vkExtensionsList;
+	
 
-	VkDebugReportCallbackEXT debugReport		= VK_NULL_HANDLE;
+	VkDebugReportCallbackEXT debugReport				= VK_NULL_HANDLE;
 	VkDebugReportCallbackCreateInfoEXT debugReportCallbackCreateInfo = {};
 };
 

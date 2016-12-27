@@ -18,22 +18,53 @@ VkRenderer::~VkRenderer()
 {
 }
 
-void VkRenderer::init(const char* applicationName, const std::vector<const char*>& requiredExtensions)
+void VkRenderer::init(const char* applicationName, const std::vector<const char*>& instanceExtensions, const std::vector<const char*>& deviceExtensions)
 {
-	setupDebug(requiredExtensions);
+	setupDebug(instanceExtensions);
 	initInstance(applicationName);
 	initDebug();
-	initDevice();
+	initDevice(deviceExtensions);
 }
 
 void VkRenderer::createWindowSurface(GLFWwindow * windowPtr)
 {
 	ErrorCheck(glfwCreateWindowSurface(vkInstance, windowPtr, nullptr, &vkSurface));
+
+	VkBool32 WSISupported = false;
+	vkGetPhysicalDeviceSurfaceSupportKHR(vkGPU, vkGraphicsFamilyIndex, vkSurface, &WSISupported);
+	if (!WSISupported) {
+		assert(0 && "WSI not supported.");
+		std::exit(-1);
+	}
+		
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkGPU, vkSurface, &vkSurfaceCapabilities);
+	if (vkSurfaceCapabilities.currentExtent.width < UINT32_MAX && vkSurfaceCapabilities.currentExtent.height < UINT32_MAX) {
+		vkSurfaceWidth  = vkSurfaceCapabilities.currentExtent.width;
+		vkSurfaceHeight = vkSurfaceCapabilities.currentExtent.height;
+	}
+
+	uint32_t surfaceFormatCount = 0;
+	vkGetPhysicalDeviceSurfaceFormatsKHR(vkGPU, vkSurface, &surfaceFormatCount, nullptr);
+	if (surfaceFormatCount == 0) {
+		assert(0 && "Surface does not support any formats.");
+		exit(-1);
+	}
+	std::vector<VkSurfaceFormatKHR> surfaceFormat(surfaceFormatCount);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(vkGPU, vkSurface, &surfaceFormatCount, surfaceFormat.data());
+	if (surfaceFormat[0].format == VK_FORMAT_UNDEFINED) {
+		vkSurfaceFormat.format = VK_FORMAT_B8G8R8A8_UNORM;
+		vkSurfaceFormat.colorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
+	}
+	else {
+		vkSurfaceFormat = surfaceFormat[0];
+	}
+
+	initSwapChain();
 }
 
 void VkRenderer::deInit() {
+	deinitSwapChain();
 	vkDestroySurfaceKHR(vkInstance, vkSurface, nullptr);
-
 	deInitDevice();
 	deInitDebug();
 	deInitInstance();
@@ -134,7 +165,7 @@ std::string getAPIVersionString(uint32_t apiVersion){
 	return apiVersionString.str();
 }
 
-void VkRenderer::initDevice()
+void VkRenderer::initDevice(const std::vector<const char*>& deviceExtensions)
 {
 	// ========================================
 	// Physical Devices extraction
@@ -214,8 +245,8 @@ void VkRenderer::initDevice()
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	deviceCreateInfo.queueCreateInfoCount		= 1;
 	deviceCreateInfo.pQueueCreateInfos			= &deviceQueueCreateInfo;
-	//deviceCreateInfo.enabledExtensionCount	= static_cast<uint32_t>(vkExtensionsList.size());
-	//deviceCreateInfo.ppEnabledExtensionNames	= vkExtensionsList.data();
+	deviceCreateInfo.enabledExtensionCount		= static_cast<uint32_t>(deviceExtensions.size());
+	deviceCreateInfo.ppEnabledExtensionNames	= deviceExtensions.data();
 	//deviceCreateInfo.enabledLayerCount		= static_cast<uint32_t>(vkLayerList.size());
 	//deviceCreateInfo.ppEnabledLayerNames		= vkLayerList.data();
 
@@ -320,5 +351,50 @@ void VkRenderer::initDebug()
 void VkRenderer::deInitDebug()
 {
 	fvkDestroyDebugReportCallBackExt(vkInstance, debugReport, nullptr);
-	debugReport = nullptr;
+	debugReport = VK_NULL_HANDLE;
+}
+
+void VkRenderer::initSwapChain()
+{
+	if (vkSwapChainImageCount > vkSurfaceCapabilities.maxImageCount) vkSwapChainImageCount = vkSurfaceCapabilities.maxImageCount;
+	if (vkSwapChainImageCount < vkSurfaceCapabilities.minImageCount) vkSwapChainImageCount = vkSurfaceCapabilities.minImageCount;
+
+	VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
+	uint32_t presentModeCount;
+	vkGetPhysicalDeviceSurfacePresentModesKHR(vkGPU, vkSurface, &presentModeCount, nullptr);
+	std::vector<VkPresentModeKHR> presentModes(presentModeCount);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(vkGPU, vkSurface, &presentModeCount, presentModes.data());
+	for (auto& pMode : presentModes) {
+		if (pMode == VK_PRESENT_MODE_MAILBOX_KHR)
+			presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+	}
+
+	VkSwapchainCreateInfoKHR swapChainCreateInfo{};
+	swapChainCreateInfo.sType					= VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	swapChainCreateInfo.surface					= vkSurface;
+	swapChainCreateInfo.minImageCount			= vkSwapChainImageCount;					// at least Double buffering
+	swapChainCreateInfo.imageFormat				= vkSurfaceFormat.format;
+	swapChainCreateInfo.imageExtent.width		= vkSurfaceWidth;
+	swapChainCreateInfo.imageExtent.height		= vkSurfaceHeight;
+	swapChainCreateInfo.imageArrayLayers		= 1;										// 1: normal, 2: stereoscopic
+	swapChainCreateInfo.imageUsage				= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	swapChainCreateInfo.imageSharingMode		= VK_SHARING_MODE_EXCLUSIVE;
+	swapChainCreateInfo.queueFamilyIndexCount	= 0;
+	swapChainCreateInfo.pQueueFamilyIndices		= VK_NULL_HANDLE;
+	swapChainCreateInfo.preTransform			= VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;	// Useful for Android
+	swapChainCreateInfo.compositeAlpha			= VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	swapChainCreateInfo.presentMode				= presentMode;
+	swapChainCreateInfo.clipped					= VK_TRUE;
+	swapChainCreateInfo.oldSwapchain			= VK_NULL_HANDLE;							// Useful during resizing.
+
+
+	vkCreateSwapchainKHR(vkDevice, &swapChainCreateInfo, nullptr, &vkSwapChain);
+
+	vkGetSwapchainImagesKHR(vkDevice, vkSwapChain, &vkSwapChainImageCount, nullptr);
+}
+
+void VkRenderer::deinitSwapChain()
+{
+	vkDestroySwapchainKHR(vkDevice, vkSwapChain, nullptr);
+	vkSwapChain = VK_NULL_HANDLE;
 }

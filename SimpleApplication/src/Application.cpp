@@ -42,8 +42,11 @@ void Application::init(const unsigned int& width, const unsigned int& height) {
 	const char** extensionsArr = glfwGetRequiredInstanceExtensions(&extensionCount);
 	for (uint32_t i = 0; i < extensionCount; i++) extensions.push_back(extensionsArr[i]);
 	
+	std::vector<const char*> deviceExtensions;
+	deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
 	// initializes the renderer.
-	renderer.init("SimpleVulkanApplication", extensions);
+	renderer.init("SimpleVulkanApplication", extensions, deviceExtensions);
 	
 	// create a window
     m_window = glfwCreateWindow(width, height, "Simple Vulkan Application", NULL, NULL);
@@ -202,7 +205,8 @@ void Application::run() {
     draw();
     double frame_end_time = glfwGetTime();
 
-    glfwSwapBuffers(m_window);
+    //glfwSwapBuffers(m_window);
+	//swapBuffers();
     glfwPollEvents();
 
     double current_time = glfwGetTime();
