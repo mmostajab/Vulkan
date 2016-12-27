@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <vector>
 #include <sstream>
+#include <array>
 
 
 
@@ -62,10 +63,14 @@ void VkRenderer::createWindowSurface(GLFWwindow * windowPtr)
 	initSwapChain();
 	initSwapChainImages();
 	initDepthStencilImage();
+	initRenderPass();
+	initFrameBuffer();
 }
 
 void VkRenderer::deInit() 
 {
+	deInitFrameBuffer();
+	deInitRenderPass();
 	deInitDepthStencilImage();
 	deInitSwapChainImages();
 	deInitSwapChain();
@@ -552,4 +557,103 @@ void VkRenderer::deInitDepthStencilImage()
 	vkDestroyImageView(vkDevice, vkDepthStencilImageView, nullptr);
 	vkFreeMemory(vkDevice, vkDepthStencilImageMem, nullptr);
 	vkDestroyImage(vkDevice, vkDepthStencilImage, nullptr);
+}
+
+void VkRenderer::initRenderPass()
+{
+	// =====================================
+	// Create Render Pass Attachments Array
+	// =====================================
+	std::array<VkAttachmentDescription, 2> attachments{};
+
+	// Depth Stencil Buffer
+	attachments[0].flags			= 0;
+	attachments[0].format			= vkDepthStencilFormat;
+	attachments[0].samples			= VK_SAMPLE_COUNT_1_BIT;
+	attachments[0].loadOp			= VK_ATTACHMENT_LOAD_OP_CLEAR;
+	attachments[0].storeOp			= VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachments[0].stencilLoadOp	= VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachments[0].stencilStoreOp	= VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[0].initialLayout	= VK_IMAGE_LAYOUT_UNDEFINED;
+	attachments[0].finalLayout		= VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	// Color Buffer
+	attachments[1].flags			= 0;
+	attachments[1].format			= vkSurfaceFormat.format;
+	attachments[1].samples			= VK_SAMPLE_COUNT_1_BIT;
+	attachments[1].loadOp			= VK_ATTACHMENT_LOAD_OP_CLEAR;
+	attachments[1].storeOp			= VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[1].initialLayout	= VK_IMAGE_LAYOUT_UNDEFINED;
+	attachments[1].finalLayout		= VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	// =====================================
+	// Create Render Pass Sub Passes
+	// =====================================
+	std::array<VkAttachmentReference, 1> subpass0ColorAttachments{};
+	subpass0ColorAttachments[0].attachment	= 1;
+	subpass0ColorAttachments[0].layout		= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference subpass0DepthStencilAttachment;
+	subpass0DepthStencilAttachment.attachment	= 0;
+	subpass0DepthStencilAttachment.layout		= VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	std::array<VkSubpassDescription, 1> subPasses{};
+	subPasses[0].pipelineBindPoint			= VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subPasses[0].inputAttachmentCount		= 0;		// Could be used for G-Buffer
+	subPasses[0].pInputAttachments			= nullptr;
+	subPasses[0].colorAttachmentCount		= static_cast<uint32_t>(subpass0ColorAttachments.size());
+	subPasses[0].pColorAttachments			= subpass0ColorAttachments.data();
+	subPasses[0].pDepthStencilAttachment    = &subpass0DepthStencilAttachment;
+
+	// =====================================
+	// Create Render Pass
+	// =====================================
+	VkRenderPassCreateInfo renderPassCreateInfo{};
+	renderPassCreateInfo.sType				= VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassCreateInfo.attachmentCount	= static_cast<uint32_t>(attachments.size());
+	renderPassCreateInfo.pAttachments		= attachments.data();
+	renderPassCreateInfo.subpassCount		= static_cast<uint32_t>(subPasses.size());
+	renderPassCreateInfo.pSubpasses			= subPasses.data();
+	renderPassCreateInfo.dependencyCount	= 0;			// Can be used for G-Buffers.
+	renderPassCreateInfo.pDependencies		= nullptr;
+
+	ErrorCheck( vkCreateRenderPass(vkDevice, &renderPassCreateInfo, nullptr, &vkRenderPass) );
+}
+
+void VkRenderer::deInitRenderPass()
+{
+	vkDestroyRenderPass(vkDevice, vkRenderPass, nullptr);
+}
+
+void VkRenderer::initFrameBuffer()
+{
+	// ====================================================
+	// Create one frame buffer for each swap chain image
+	// ====================================================
+	vkFrameBuffer.resize(vkSwapChainImages.size());
+	for (uint32_t i = 0; i < vkSwapChainImageCount; i++) {
+		// Create attachments list for frame buffer creation
+		// ! Needs to be compatiable with render pass
+		std::array<VkImageView, 2> attachments;
+		attachments[0] = vkDepthStencilImageView;
+		attachments[1] = vkSwapChainImageViews[i];
+
+		VkFramebufferCreateInfo frameBufferCreateInfo{};
+		frameBufferCreateInfo.sType				= VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		frameBufferCreateInfo.renderPass		= vkRenderPass;
+		frameBufferCreateInfo.attachmentCount   = static_cast<uint32_t>(attachments.size());
+		frameBufferCreateInfo.pAttachments		= attachments.data();
+		frameBufferCreateInfo.width				= vkSurfaceWidth;
+		frameBufferCreateInfo.height			= vkSurfaceHeight;
+		frameBufferCreateInfo.layers			= 1;
+
+		ErrorCheck( vkCreateFramebuffer(vkDevice, &frameBufferCreateInfo, nullptr, &vkFrameBuffer[i]) );
+	}
+}
+
+void VkRenderer::deInitFrameBuffer()
+{
+	for (uint32_t i = 0; i < vkSwapChainImageCount; i++) {
+		vkDestroyFramebuffer(vkDevice, vkFrameBuffer[i], nullptr);
+	}
 }

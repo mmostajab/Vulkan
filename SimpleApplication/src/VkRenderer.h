@@ -54,6 +54,12 @@ private:
 	void initDepthStencilImage();
 	void deInitDepthStencilImage();
 
+	void initRenderPass();
+	void deInitRenderPass();
+
+	void initFrameBuffer();
+	void deInitFrameBuffer();
+
 	VkInstance							vkInstance				= VK_NULL_HANDLE;
 	VkDevice							vkDevice				= VK_NULL_HANDLE;
 	VkPhysicalDevice					vkGPU					= VK_NULL_HANDLE;
@@ -72,6 +78,11 @@ private:
 	// Swap chain images
 	std::vector<VkImage>				vkSwapChainImages;
 	std::vector<VkImageView>			vkSwapChainImageViews;
+
+	// Render Pass
+	VkRenderPass                        vkRenderPass			= VK_NULL_HANDLE;
+
+	std::vector<VkFramebuffer>          vkFrameBuffer           = {};
 
 	// Depth Stencil Image and Image View
 	bool								vkStencilBufferAvailable = false;
