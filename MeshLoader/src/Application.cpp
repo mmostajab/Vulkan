@@ -164,6 +164,78 @@ void Application::create() {
      vertices[i].pos *= 5.0;
 #endif
    }
+
+   // ============================================
+   // Create Vulkan Buffer for the mesh vertices
+   // ============================================
+   uint32_t gpuQueueFamilyIndex = renderer.getVkGraphicsQueueFamilyIndex();
+
+   VkBufferCreateInfo bufferCreateInfo{};
+   bufferCreateInfo.sType					= VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+   bufferCreateInfo.usage					= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+   bufferCreateInfo.size					= vertices.size() * sizeof(PlyObjVertex);
+   bufferCreateInfo.sharingMode				= VK_SHARING_MODE_EXCLUSIVE;
+   bufferCreateInfo.queueFamilyIndexCount	= 1;
+   bufferCreateInfo.pQueueFamilyIndices		= &gpuQueueFamilyIndex;
+
+   vkCreateBuffer(renderer.getVkDevice(), &bufferCreateInfo, nullptr, &vertexBuffer);
+
+   VkMemoryRequirements vertexBufferMemReq{};
+   vkGetBufferMemoryRequirements(renderer.getVkDevice(), vertexBuffer, &vertexBufferMemReq);
+
+   VkMemoryAllocateInfo vertMemAllocInfo{};
+   vertMemAllocInfo.sType			= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+   vertMemAllocInfo.memoryTypeIndex = FindVkMemoryTypeIndex(renderer.getVkPhysicalDeviceMemProperties(), vertexBufferMemReq, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+   vertMemAllocInfo.allocationSize	= vertexBufferMemReq.size;
+   vkAllocateMemory(renderer.getVkDevice(), &vertMemAllocInfo, nullptr, &vertexBufferMem);
+   
+   // =============================
+   // Fill Vertex Buffer
+   // =============================
+   void* verticesData = nullptr;
+   vkMapMemory(renderer.getVkDevice(), vertexBufferMem, 0, VK_WHOLE_SIZE, 0, &verticesData);
+   for (size_t i = 0; i < vertices.size(); i++) {
+	   PlyObjVertex& vertex = ((PlyObjVertex*)verticesData)[i];
+	   vertex.pos		= vertices[i].pos;
+	   vertex.normal	= vertices[i].normal;
+   }
+   vkUnmapMemory(renderer.getVkDevice(), vertexBufferMem);
+
+   vkBindBufferMemory(renderer.getVkDevice(), vertexBuffer, vertexBufferMem, 0);
+
+   // ============================================
+   // Create Vulkan Buffer for the mesh indices
+   // ============================================
+   VkBufferCreateInfo indexBufferCreateInfo{};
+   indexBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+   indexBufferCreateInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+   indexBufferCreateInfo.size = indices.size() * sizeof(unsigned int);
+   indexBufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+   indexBufferCreateInfo.queueFamilyIndexCount = 1;
+   indexBufferCreateInfo.pQueueFamilyIndices = &gpuQueueFamilyIndex;
+
+   vkCreateBuffer(renderer.getVkDevice(), &indexBufferCreateInfo, nullptr, &indexBuffer);
+
+   VkMemoryRequirements indexBufferMemReq{};
+   vkGetBufferMemoryRequirements(renderer.getVkDevice(), indexBuffer, &indexBufferMemReq);
+
+   VkMemoryAllocateInfo indexMemAllocInfo{};
+   indexMemAllocInfo.sType				= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+   indexMemAllocInfo.memoryTypeIndex	= FindVkMemoryTypeIndex(renderer.getVkPhysicalDeviceMemProperties(), indexBufferMemReq, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+   indexMemAllocInfo.allocationSize		= indexBufferMemReq.size;
+   vkAllocateMemory(renderer.getVkDevice(), &indexMemAllocInfo, nullptr, &indexBufferMem);
+
+   // =============================
+   // Fill Index Buffer
+   // =============================
+   void* indicesData = nullptr;
+   vkMapMemory(renderer.getVkDevice(), indexBufferMem, 0, VK_WHOLE_SIZE, 0, &indicesData);
+   for (size_t i = 0; i < indices.size(); i++) {
+	   unsigned int& index = ((unsigned int*)indicesData)[i];
+	   index = indices[i];
+   }
+   vkUnmapMemory(renderer.getVkDevice(), indexBufferMem);
+   vkBindBufferMemory(renderer.getVkDevice(), indexBuffer, indexBufferMem, 0);
 }
 
 void Application::update(float time, float timeSinceLastFrame) {
@@ -192,6 +264,19 @@ float Application::readDepthBuffer(glm::dvec2 mousePos)
 {
 	float fDepth = 0.0f;
 	return fDepth;
+}
+
+void Application::freeVkMemory()
+{
+	vkFreeMemory(renderer.getVkDevice(), vertexBufferMem,	nullptr);
+	vkFreeMemory(renderer.getVkDevice(), indexBufferMem,	nullptr);
+	vertexBufferMem = VK_NULL_HANDLE;
+	indexBufferMem	= VK_NULL_HANDLE;
+
+	vkDestroyBuffer(renderer.getVkDevice(), vertexBuffer, nullptr);
+	vkDestroyBuffer(renderer.getVkDevice(), indexBuffer, nullptr);
+	vertexBuffer = VK_NULL_HANDLE;
+	indexBuffer  = VK_NULL_HANDLE;
 }
 
 void Application::run() {
@@ -314,6 +399,8 @@ void Application::run() {
 }
 
 void Application::shutdown() {
+	freeVkMemory();
+
 	renderer.deInit();
 	glfwDestroyWindow(m_window);
 	glfwTerminate();

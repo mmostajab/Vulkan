@@ -106,6 +106,14 @@ private:
 
 	// Vulkan 
 	VkRenderer   renderer;
+
+	// Mesh Info
+	VkBuffer vertexBuffer			= VK_NULL_HANDLE;
+	VkBuffer indexBuffer			= VK_NULL_HANDLE;
+	VkDeviceMemory vertexBufferMem	= VK_NULL_HANDLE;
+	VkDeviceMemory indexBufferMem	= VK_NULL_HANDLE;
+
+	void freeVkMemory();
 };
 
 #endif
