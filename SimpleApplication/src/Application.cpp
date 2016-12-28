@@ -233,6 +233,10 @@ void Application::run() {
 		// ========================
 		frame_counter++;
 		if (frame_counter % 100 == 0) std::cout << "FPS = " << 1.0 / (end_frame - start_frame) << std::endl;
+
+		// Process OS events.
+		glfwPollEvents();
+
 		start_frame = glfwGetTime();
 
 		// ========================
@@ -300,9 +304,6 @@ void Application::run() {
 		renderer.endRender({ semaphore });
 
 		end_frame = glfwGetTime();
-
-		// Process OS events.
-		glfwPollEvents();
 	}
 
 	// Wait until the commands in the queue are done before starting the deinitialization.
