@@ -10,6 +10,7 @@
 #include <fstream>
 #include <ctime>
 #include <random>
+#include <array>
 
 // GL
 #include <glm/glm.hpp>
@@ -194,29 +195,121 @@ float Application::readDepthBuffer(glm::dvec2 mousePos)
 }
 
 void Application::run() {
-  create();
-  double start_time;
-  double start_frame;
-  start_time = start_frame = glfwGetTime();
+	create();
+	double start_time;
+	double start_frame, end_frame;
+	start_time = start_frame = glfwGetTime();
+	uint64_t frame_counter = 0;
 
-  while (!glfwWindowShouldClose(m_window))
-  {
-    double frame_start_time = glfwGetTime();
-    draw();
-    double frame_end_time = glfwGetTime();
+	// ==========================================
+	// Command Pool Creation
+	// ==========================================
+	VkCommandPool	cmdPool					= VK_NULL_HANDLE;
+	VkCommandBuffer cmdBuffer				= VK_NULL_HANDLE;
 
-    //glfwSwapBuffers(m_window);
-	//swapBuffers();
-    glfwPollEvents();
+	VkCommandPoolCreateInfo cmdPoolCreateInfo{};
+	cmdPoolCreateInfo.sType					= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	cmdPoolCreateInfo.flags					= VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	cmdPoolCreateInfo.queueFamilyIndex		= renderer.getVkGraphicsQueueFamilyIndex();
+	vkCreateCommandPool(renderer.getVkDevice(), &cmdPoolCreateInfo, nullptr, &cmdPool);
 
-    double current_time = glfwGetTime();
-    double elapsed_since_start          = current_time - start_time;
-    double elapsed_since_last_frame     = current_time - start_frame;
+	VkCommandBufferAllocateInfo cmdBufferAllocateInfo{};
+	cmdBufferAllocateInfo.sType					= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	cmdBufferAllocateInfo.commandPool			= cmdPool;
+	cmdBufferAllocateInfo.level					= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	cmdBufferAllocateInfo.commandBufferCount	= 1;
 
-    start_frame = glfwGetTime();
+	vkAllocateCommandBuffers(renderer.getVkDevice(), &cmdBufferAllocateInfo, &cmdBuffer);
 
-    update(static_cast<float>(elapsed_since_start), static_cast<float>(elapsed_since_last_frame));
-  }
+	VkSemaphore semaphore = VK_NULL_HANDLE;
+	VkSemaphoreCreateInfo semaphoreCreateInfo{};
+	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	vkCreateSemaphore(renderer.getVkDevice(), &semaphoreCreateInfo, nullptr, &semaphore);
+
+	while (!glfwWindowShouldClose(m_window))
+	{
+		// ========================
+		// CPU update buffers.
+		// ========================
+		frame_counter++;
+		if (frame_counter % 100 == 0) std::cout << "FPS = " << 1.0 / (end_frame - start_frame) << std::endl;
+		start_frame = glfwGetTime();
+
+		// ========================
+		// Begin Render
+		// ========================
+		renderer.beginRender();
+
+		// ========================
+		// Record Command Buffer
+		// ========================
+		VkCommandBufferBeginInfo cmdBufferBeginInfo{};
+		cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		cmdBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+		vkBeginCommandBuffer(cmdBuffer, &cmdBufferBeginInfo);
+
+		VkRect2D renderArea{};
+		renderArea.offset.x			= 0;
+		renderArea.offset.y			= 0;
+		renderArea.extent.width		= renderer.getVkSurfaceWidth();
+		renderArea.extent.height	= renderer.getVkSurfaceHeight();
+
+		// First Attachment:	Depth-Stencil
+		// Second Attachment:	Color
+		std::array<VkClearValue, 2> clearValues{};
+		clearValues[0].depthStencil.depth	= 1.0f;
+		clearValues[0].depthStencil.stencil = 0;
+		clearValues[1].color.float32[0]		= static_cast<float>(2.0 * sin((glfwGetTime() - start_time) * 0.5) - 1.0);
+		clearValues[1].color.float32[1]		= static_cast<float>(2.0 * sin((glfwGetTime() - start_time) * 1.0) - 1.0);
+		clearValues[1].color.float32[2]		= static_cast<float>(2.0 * sin((glfwGetTime() - start_time) * 1.5) - 1.0);
+		clearValues[1].color.float32[3]		= 1.0f;
+
+		VkRenderPassBeginInfo renderPassBeginInfo{};
+		renderPassBeginInfo.sType			= VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassBeginInfo.renderPass		= renderer.getVkRenderPass();
+		renderPassBeginInfo.framebuffer		= renderer.getVkActiveFrameBuffer();
+		renderPassBeginInfo.renderArea		= renderArea;
+		renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassBeginInfo.pClearValues	= clearValues.data();
+				
+		vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		vkCmdEndRenderPass(cmdBuffer);
+
+		vkEndCommandBuffer(cmdBuffer);
+
+		// ========================
+		// Submit Command Buffer
+		// ========================
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType				= VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.waitSemaphoreCount	= 0;
+		submitInfo.pWaitSemaphores		= nullptr;
+		submitInfo.pWaitDstStageMask	= nullptr;
+		submitInfo.commandBufferCount	= 1;
+		submitInfo.pCommandBuffers		= &cmdBuffer;
+		submitInfo.signalSemaphoreCount = 1;
+		submitInfo.pSignalSemaphores	= &semaphore;
+
+		vkQueueSubmit(renderer.getVkQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+
+		// ========================
+		// End Render		
+		// ========================
+		renderer.endRender({ semaphore });
+
+		end_frame = glfwGetTime();
+
+		// Process OS events.
+		glfwPollEvents();
+	}
+
+	// Wait until the commands in the queue are done before starting the deinitialization.
+	vkQueueWaitIdle(renderer.getVkQueue());
+
+	vkDestroySemaphore(renderer.getVkDevice(), semaphore, nullptr);
+	vkDestroyCommandPool(renderer.getVkDevice(), cmdPool, nullptr);
 }
 
 void Application::shutdown() {

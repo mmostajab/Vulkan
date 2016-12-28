@@ -65,10 +65,15 @@ void VkRenderer::createWindowSurface(GLFWwindow * windowPtr)
 	initDepthStencilImage();
 	initRenderPass();
 	initFrameBuffer();
+	initSynchronization();
 }
 
 void VkRenderer::deInit() 
 {
+	// Wait until the commands in the queue are done before starting the deinitialization.
+	vkQueueWaitIdle(vkQueue);
+
+	deInitSynchronization();
 	deInitFrameBuffer();
 	deInitRenderPass();
 	deInitDepthStencilImage();
@@ -113,6 +118,21 @@ const VkPhysicalDeviceProperties & VkRenderer::getVkPhysicalDeviceProperties() c
 const VkPhysicalDeviceMemoryProperties & VkRenderer::getVkPhysicalDeviceMemProperties() const
 {
 	return vkGPUMemProperties;
+}
+
+const VkSwapchainKHR & VkRenderer::getVkSwapChain() const
+{
+	return vkSwapChain;
+}
+
+const VkRenderPass & VkRenderer::getVkRenderPass() const
+{
+	return vkRenderPass;
+}
+
+const VkFramebuffer & VkRenderer::getVkActiveFrameBuffer() const
+{
+	return vkFrameBuffer[vkActiveSwapChainID];
 }
 
 void VkRenderer::initInstance(const char* applicationName)
@@ -324,8 +344,6 @@ VKAPI_ATTR VkBool32 VulkanDebugCallBackFunc(
 
 void VkRenderer::setupDebug(const std::vector<const char*>& requiredExtensions)
 {
-
-
 	//vkLayerList.push_back("VK_LAYER_LUNARG_api_dump");
 	vkLayerList.push_back("VK_LAYER_LUNARG_core_validation");
 	//vkLayerList.push_back("VK_LAYER_LUNARG_monitor");
@@ -656,4 +674,50 @@ void VkRenderer::deInitFrameBuffer()
 	for (uint32_t i = 0; i < vkSwapChainImageCount; i++) {
 		vkDestroyFramebuffer(vkDevice, vkFrameBuffer[i], nullptr);
 	}
+}
+
+void VkRenderer::initSynchronization()
+{
+	VkFenceCreateInfo fenceCreateInfo{};
+	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	vkCreateFence(vkDevice, &fenceCreateInfo, nullptr, &vkSwapChainImageAvailable);
+}
+
+void VkRenderer::deInitSynchronization()
+{
+	vkDestroyFence(vkDevice, vkSwapChainImageAvailable, nullptr);	vkSwapChainImageAvailable = VK_NULL_HANDLE;
+}
+
+uint32_t VkRenderer::getVkSurfaceWidth() const
+{
+	return vkSurfaceWidth;
+}
+
+uint32_t VkRenderer::getVkSurfaceHeight() const
+{
+	return vkSurfaceHeight;
+}
+
+void VkRenderer::beginRender()
+{
+	vkAcquireNextImageKHR(vkDevice, vkSwapChain, UINT64_MAX, VK_NULL_HANDLE, vkSwapChainImageAvailable, &vkActiveSwapChainID);
+	vkWaitForFences(vkDevice, 1, &vkSwapChainImageAvailable, VK_TRUE, UINT64_MAX);
+	vkResetFences(vkDevice, 1, &vkSwapChainImageAvailable);
+	vkQueueWaitIdle(vkQueue);
+}
+
+void VkRenderer::endRender(const std::vector<VkSemaphore>& waitSemaphores)
+{
+	VkResult presentResult = VkResult::VK_RESULT_MAX_ENUM;
+
+	VkPresentInfoKHR presentInfo{};
+	presentInfo.sType				= VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.waitSemaphoreCount	= static_cast<uint32_t>(waitSemaphores.size());
+	presentInfo.pWaitSemaphores		= waitSemaphores.data();
+	presentInfo.swapchainCount		= 1;
+	presentInfo.pSwapchains			= &vkSwapChain;
+	presentInfo.pImageIndices		= &vkActiveSwapChainID;
+	presentInfo.pResults			= &presentResult;
+
+	ErrorCheck(vkQueuePresentKHR(vkQueue, &presentInfo));
 }

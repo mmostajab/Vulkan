@@ -25,7 +25,7 @@ public:
 	void init(const char* applicationName, const std::vector<const char*>& instanceExtensions, const std::vector<const char*>& deviceExtensions);
 	void createWindowSurface(GLFWwindow* windowPtr);
 	void deInit();
-
+	
 	// get functions
 	const VkInstance							getVkInstance()						const;
 	const VkPhysicalDevice						getVkPhysicalDevice()				const;
@@ -34,6 +34,17 @@ public:
 	const uint32_t								getVkGraphicsQueueFamilyIndex()		const;
 	const VkPhysicalDeviceProperties&			getVkPhysicalDeviceProperties()		const;
 	const VkPhysicalDeviceMemoryProperties&		getVkPhysicalDeviceMemProperties()	const;
+	const VkSwapchainKHR&                       getVkSwapChain()                    const;
+
+	const VkRenderPass&                         getVkRenderPass()                   const;
+	const VkFramebuffer&                        getVkActiveFrameBuffer()			const;
+
+	uint32_t                                    getVkSurfaceWidth()					const;
+	uint32_t									getVkSurfaceHeight()				const;
+
+	// Rendering related.
+	void beginRender();
+	void endRender(const std::vector<VkSemaphore>& waitSemaphores);
 
 private:
 	void initInstance(const char* applicationName);
@@ -60,6 +71,9 @@ private:
 	void initFrameBuffer();
 	void deInitFrameBuffer();
 
+	void initSynchronization();
+	void deInitSynchronization();
+
 	VkInstance							vkInstance				= VK_NULL_HANDLE;
 	VkDevice							vkDevice				= VK_NULL_HANDLE;
 	VkPhysicalDevice					vkGPU					= VK_NULL_HANDLE;
@@ -73,7 +87,11 @@ private:
 	VkSurfaceFormatKHR					vkSurfaceFormat			= {};
 	uint32_t							vkSurfaceWidth			= UINT32_MAX;
 	uint32_t							vkSurfaceHeight			= UINT32_MAX;
-	uint32_t							vkSwapChainImageCount   = 2;
+	uint32_t							vkSwapChainImageCount   = 3;
+
+	// Rendering
+	VkFence                             vkSwapChainImageAvailable	= VK_NULL_HANDLE;
+	uint32_t                            vkActiveSwapChainID			= UINT32_MAX;
 
 	// Swap chain images
 	std::vector<VkImage>				vkSwapChainImages;
