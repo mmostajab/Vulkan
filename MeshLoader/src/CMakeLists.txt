@@ -63,6 +63,8 @@ add_custom_target(copy-VkMeshLoader-files ALL
     DEPENDS ${MY_TARGET}
 	COMMAND cmake -E copy_directory ${CMAKE_SOURCE_DIR}/src/glsl ${CMAKE_BINARY_DIR}/glsl
     DEPENDS ${MY_TARGET}
+	COMMAND cmake -E copy_directory ${CMAKE_SOURCE_DIR}/src/shaders ${CMAKE_BINARY_DIR}/shaders
+    DEPENDS ${MY_TARGET}
 	)
 add_dependencies(VkMeshLoader copy-VkMeshLoader-files)
 
