@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "Navigation.h"
+//#include "Navigation.h"
 
 struct SAMPLE_POINTS {
     glm::vec4     point[256];
@@ -75,7 +75,7 @@ private:
 
 private:
 	// Navigation
-	Navigation m_navigation;
+	//Navigation m_navigation;
 	glm::dvec2 m_prevMousePos;
 
 	// Key bindings

@@ -15,8 +15,9 @@
 // GL
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/ext.hpp>
 
-#define PORSCHE_MESH
+//#define PORSCHE_MESH
 //#define SPHERE_MESH
 
 Application::Application() {
@@ -81,9 +82,9 @@ void Application::init() {
 	m_zNear = 0.01;
     m_arcBallRadius = 0.7;
 
-	m_navigation.setProject(m_fov, m_aspectRatio, m_zNear);
-	m_navigation.setView(glm::dvec3(1.0), glm::dvec3(0.0), glm::dvec3(0.0, 1.0, 0.0));
-	m_navigation.setScreenSize(m_width, m_height);
+	//m_navigation.setProject(m_fov, m_aspectRatio, m_zNear);
+	//m_navigation.setView(glm::dvec3(1.0), glm::dvec3(0.0), glm::dvec3(0.0, 1.0, 0.0));
+	//m_navigation.setScreenSize(m_width, m_height);
 
 	back_color = glm::vec4(0.2f, 0.6f, 0.7f, 1.0f);
 	one = 1.0f;
@@ -247,13 +248,25 @@ void Application::update(float time, float timeSinceLastFrame) {
 	// ===========================================
 	glm::mat4 identity(1.0f);
 
+	glm::mat4 viewMatrix = glm::lookAt(glm::vec3(sin(time), 0.0f, cos(time)), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+	//glm::mat4 projMatrix = glm::ortho(-1.0f, 1.0f, 1.0f, -1.0f, -20.0f, 20.0f);
+	glm::mat4 projMatrix = glm::perspectiveFov(glm::pi<float>() / 2.0f, (float)renderer.getVkSurfaceWidth(), (float)renderer.getVkSurfaceHeight(), 0.001f, 1000.0f);
+
 	void* trasnformations_ = nullptr;
 	vkMapMemory(renderer.getVkDevice(), transformationBufferMem, 0, VK_WHOLE_SIZE, 0, &trasnformations_);
 	
 	glm::mat4* transformations = (glm::mat4*)trasnformations_;
-	transformations[0] = identity;
-	transformations[1] = identity;
+	transformations[0] = projMatrix;
+	transformations[1] = viewMatrix;
 	transformations[2] = identity;
+
+	VkMappedMemoryRange memoryRange{};
+	memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+	memoryRange.memory = transformationBufferMem;
+	memoryRange.offset = 0;
+	memoryRange.size = VK_WHOLE_SIZE;
+	
+	vkFlushMappedMemoryRanges(renderer.getVkDevice(), 1, &memoryRange);
 
 	vkUnmapMemory(renderer.getVkDevice(), transformationBufferMem);
 }
@@ -266,7 +279,7 @@ void Application::drawPly() {
 
 void Application::setMousePosRepresentation(glm::vec3 mousePointerViewPos)
 {
-	glm::vec4 mousePointerWorldPos = m_navigation.getInvView() * glm::vec4(mousePointerViewPos, 1.0f);
+	//glm::vec4 mousePointerWorldPos = m_navigation.getInvView() * glm::vec4(mousePointerViewPos, 1.0f);
 
 #if 0
 	std::cout << "mouse Pointer Pos = " << mousePointerViewPos[0] << " " << mousePointerViewPos[1] << " " << mousePointerViewPos[2] << std::endl;
@@ -338,7 +351,9 @@ void Application::run() {
 		// CPU update buffers.
 		// ========================
 		frame_counter++;
+		double now_time = glfwGetTime();
 		if (frame_counter % 100 == 0) std::cout << "FPS = " << 1.0 / (end_frame - start_frame) << std::endl;
+		update(static_cast<float>(now_time - start_time), static_cast<float>(now_time - start_frame));
 
 		// Process OS events.
 		glfwPollEvents();
@@ -358,6 +373,15 @@ void Application::run() {
 		cmdBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
 		vkBeginCommandBuffer(cmdBuffer, &cmdBufferBeginInfo);
+
+		VkMemoryBarrier transformationMemBarrier{};
+		transformationMemBarrier.sType			= VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+		transformationMemBarrier.srcAccessMask	= VK_ACCESS_HOST_WRITE_BIT;
+		transformationMemBarrier.dstAccessMask	= VK_ACCESS_UNIFORM_READ_BIT;
+
+		vkCmdPipelineBarrier(
+			cmdBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			0, 1, &transformationMemBarrier, 0, nullptr, 0, nullptr);
 
 		VkRect2D renderArea{};
 		renderArea.offset.x			= 0;
@@ -384,6 +408,34 @@ void Application::run() {
 		renderPassBeginInfo.pClearValues	= clearValues.data();
 				
 		vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+		VkViewport viewport{};
+		viewport.x			= 0;
+		viewport.y			= 0;
+		viewport.width		= static_cast<float>(renderer.getVkSurfaceWidth());
+		viewport.height		= static_cast<float>(renderer.getVkSurfaceHeight());
+		viewport.minDepth	= -1.0f;
+		viewport.maxDepth	= 1.0f;
+		
+		VkRect2D scissor{};
+		scissor.extent.width	= renderer.getVkSurfaceWidth();
+		scissor.extent.height	= renderer.getVkSurfaceHeight();
+		scissor.offset.x		= 0;
+		scissor.offset.y		= 0;
+
+		vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
+		vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+
+		vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,	0, 1, &descriptorSet, 0, nullptr);
+
+		VkDeviceSize noOffset = 0;
+		
+		vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &vertexBuffer, &noOffset);
+		vkCmdBindIndexBuffer(cmdBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+		vkCmdDrawIndexed(cmdBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(cmdBuffer);
 
@@ -619,7 +671,7 @@ void Application::initPipeline()
 	viewport.y				= 0;
 	viewport.width			= static_cast<float>(renderer.getVkSurfaceWidth());
 	viewport.height			= static_cast<float>(renderer.getVkSurfaceHeight());
-	viewport.minDepth		= 0.0f;
+	viewport.minDepth		= -1.0f;
 	viewport.maxDepth		= 1.0f;
 
 	VkRect2D scissor{};
@@ -663,8 +715,8 @@ void Application::initPipeline()
 	depthStencilState.depthCompareOp		= VK_COMPARE_OP_LESS;
 	depthStencilState.depthBoundsTestEnable = VK_TRUE;
 	depthStencilState.stencilTestEnable		= VK_FALSE;
-	depthStencilState.minDepthBounds		= 0.0f;
-	depthStencilState.maxDepthBounds		= 1.0f;
+	depthStencilState.minDepthBounds		= -1.0f;
+	depthStencilState.maxDepthBounds		=  1.0f;
 	//depthStencilState.front;
 	//depthStencilState.back;
 
@@ -710,10 +762,10 @@ void Application::initPipeline()
 	pipelineCreateInfo.pTessellationState			= nullptr;
 	pipelineCreateInfo.pViewportState				= &viewportState;
 	pipelineCreateInfo.pRasterizationState			= &rasterizationState;
-	pipelineCreateInfo.pMultisampleState			= nullptr;	//&multisampleState;
-	pipelineCreateInfo.pDepthStencilState			= nullptr;	// &depthStencilState;
-	pipelineCreateInfo.pColorBlendState				= nullptr;	// &colorBlendState;
-	pipelineCreateInfo.pDynamicState				= nullptr;	// &dynamicStateCreateInfo;
+	pipelineCreateInfo.pMultisampleState			= &multisampleState;
+	pipelineCreateInfo.pDepthStencilState			= &depthStencilState;
+	pipelineCreateInfo.pColorBlendState				= &colorBlendState;
+	pipelineCreateInfo.pDynamicState				= &dynamicStateCreateInfo;
 	pipelineCreateInfo.layout						= pipelineLayout;
 	pipelineCreateInfo.renderPass					= renderer.getVkRenderPass();
 	pipelineCreateInfo.subpass						= 0;
@@ -738,16 +790,15 @@ void Application::EventMouseButton(GLFWwindow* window, int button, int action, i
 		glm::dvec2 currentMousePos;
 		glfwGetCursorPos(m_window, &currentMousePos[0], &currentMousePos[1]);
 
-		glm::dmat4 viewMat = m_navigation.getView();
-		glm::dvec3 viewCenterOfRotation(0.0);
-		viewCenterOfRotation = glm::dvec3(viewMat * glm::dvec4(viewCenterOfRotation, 1.0));
+		//glm::dmat4 viewMat = m_navigation.getView();
+		//glm::dvec3 viewCenterOfRotation(0.0);
+		//viewCenterOfRotation = glm::dvec3(viewMat * glm::dvec4(viewCenterOfRotation, 1.0));
 
-		float depth = readDepthBuffer(currentMousePos);
+		//float depth = readDepthBuffer(currentMousePos);
+		//setMousePosRepresentation(m_navigation.getPointViewCoord(currentMousePos, readDepthBuffer(currentMousePos)));
 
-		setMousePosRepresentation(m_navigation.getPointViewCoord(currentMousePos, readDepthBuffer(currentMousePos)));
-
-		glm::dvec3 viewcurrentMousePos = m_navigation.getPointViewCoord(currentMousePos, depth);
-		double viewSpaceRadius = glm::length(viewcurrentMousePos - viewCenterOfRotation);
+		//glm::dvec3 viewcurrentMousePos = m_navigation.getPointViewCoord(currentMousePos, depth);
+		double viewSpaceRadius = 2.0f;// glm::length(viewcurrentMousePos - viewCenterOfRotation);
 
 //		setMousePosRepresentation(viewSpaceRadius);
 
@@ -761,12 +812,12 @@ void Application::EventMouseButton(GLFWwindow* window, int button, int action, i
 		std::cout << "=================================================================\n";
 #endif
 
-		m_navigation.startUpdate(currentMousePos, viewCenterOfRotation/*viewcurrentMousePos*/, viewSpaceRadius);
+		//m_navigation.startUpdate(currentMousePos, viewCenterOfRotation/*viewcurrentMousePos*/, viewSpaceRadius);
 		m_mouse_left_drag = true;
 	}
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
-		m_navigation.endUpdate();
+		//m_navigation.endUpdate();
 		m_mouse_left_drag = false;
 	}
 
@@ -777,16 +828,16 @@ void Application::EventMouseButton(GLFWwindow* window, int button, int action, i
 
 		float depth = readDepthBuffer(currentMousePos);
 
-		setMousePosRepresentation(m_navigation.getPointViewCoord(currentMousePos, readDepthBuffer(currentMousePos)));
-		glm::dvec3 viewcurrentMousePos = m_navigation.getPointViewCoord(currentMousePos, depth);
+		//setMousePosRepresentation(m_navigation.getPointViewCoord(currentMousePos, readDepthBuffer(currentMousePos)));
+		//glm::dvec3 viewcurrentMousePos = m_navigation.getPointViewCoord(currentMousePos, depth);
 
-		m_navigation.startPan(viewcurrentMousePos);
+		//m_navigation.startPan(viewcurrentMousePos);
 		m_mouse_right_drag = true;
 	}
 
 	if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
 	{
-		m_navigation.endPan();
+		//m_navigation.endPan();
 		m_mouse_right_drag = false;
 	}
 
@@ -803,7 +854,7 @@ void Application::EventMousePos(GLFWwindow* window, double xpos, double ypos) {
 	
 
   if (m_mouse_left_drag) {
-	  m_navigation.updateRotate(newMousePos);
+	  //m_navigation.updateRotate(newMousePos);
 
 	  ;
 
@@ -811,7 +862,7 @@ void Application::EventMousePos(GLFWwindow* window, double xpos, double ypos) {
   }
 
   if (m_mouse_right_drag) {  
-	  m_navigation.updatePan(newMousePos);
+	 // m_navigation.updatePan(newMousePos);
   }
 
   /*if (m_mouse_right_drag) {
@@ -833,7 +884,7 @@ void Application::EventMouseWheel(GLFWwindow* window, double xoffset, double yof
 		currentMousePos += .5;
 		currentMousePos /= screenSize;
 		currentMousePos = currentMousePos * 2. - 1.;
-		m_navigation.zoomStep(yoffset < 0 ? -1 : 1, currentMousePos);
+		//m_navigation.zoomStep(yoffset < 0 ? -1 : 1, currentMousePos);
 	}
 }
 
@@ -876,8 +927,8 @@ void Application::WindowSizeCB(GLFWwindow* window, int width, int height) {
   m_width = width; m_height = height;
   //glViewport(0, 0, width, height);
   m_aspectRatio = static_cast<double>(width) / static_cast<double>(height);
-  m_navigation.setProject(m_fov, m_aspectRatio, m_zNear);
-  m_navigation.setScreenSize(m_width, m_height);
+  //m_navigation.setProject(m_fov, m_aspectRatio, m_zNear);
+  //m_navigation.setScreenSize(m_width, m_height);
 }
 
 void Application::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {

@@ -16,13 +16,8 @@ set(VkMeshLoaderSources
 	plydatareader.cpp
 	rply.cpp
 	main.cpp
-	arcball.cpp
-	zoom.cpp
-	Navigation.cpp
-	translationPan.cpp
-        helper.cpp
-       
-        VkRenderer.cpp
+    helper.cpp
+    VkRenderer.cpp
 )
 
 set(VkMeshLoaderHeaders
@@ -31,12 +26,7 @@ set(VkMeshLoaderHeaders
 	rply.h
 	AABB.h
 	helper.h
-	arcball.h
-	zoom.h
-	Navigation.h
-	translationPan.h
-
-        VkRenderer.h
+    VkRenderer.h
 )
 
 include_directories(${Vulkan_INCLUDE_DIR} ${GLFW_INCLUDE_DIRS} ${GLM_INCLUDE_DIR})

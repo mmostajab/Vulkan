@@ -10,13 +10,13 @@ layout( location = 0 ) in vec3 pos;
 layout( location = 1 ) in vec3 normal;
 
 out VS_OUT {
-    vec4 viewPos;
-    vec3 viewNormal;
+    vec4 pos;
+    vec3 normal;
 } vs_out;
 
 void main(){
     mat4 mv = viewMatrix * worldMatrix;
-    vs_out.viewPos = mv * vec4(pos, 1.0f);
-    vs_out.viewNormal = (mv * vec4(normal, 0.0f)).xyz; 
-    gl_Position = projMatrix * vs_out.viewPos;
+    vs_out.pos = mv * vec4(pos, 1.0f);
+    vs_out.normal = (mv * vec4(normal, 0.0f)).xyz; 
+    gl_Position = projMatrix * vs_out.pos;
 }
