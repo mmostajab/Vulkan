@@ -103,7 +103,7 @@ void Application::init() {
 }
 
 void Application::create() {
-   compileShaders();
+   loadShaders();
 
 #ifdef PORSCHE_MESH
    PlyDataReader::getSingletonPtr()->readDataInfo("../data/big_porsche.ply", nullptr, 0);
@@ -239,6 +239,21 @@ void Application::create() {
 }
 
 void Application::update(float time, float timeSinceLastFrame) {
+
+	// ===========================================
+	// Set the trasnformations uniform buffer
+	// ===========================================
+	glm::mat4 identity(1.0f);
+
+	void* trasnformations_ = nullptr;
+	vkMapMemory(renderer.getVkDevice(), transformationBufferMem, 0, VK_WHOLE_SIZE, 0, &trasnformations_);
+	
+	glm::mat4* transformations = (glm::mat4*)trasnformations_;
+	transformations[0] = identity;
+	transformations[1] = identity;
+	transformations[2] = identity;
+
+	vkUnmapMemory(renderer.getVkDevice(), transformationBufferMem);
 }
 
 void Application::draw() {
@@ -268,15 +283,19 @@ float Application::readDepthBuffer(glm::dvec2 mousePos)
 
 void Application::freeVkMemory()
 {
-	vkFreeMemory(renderer.getVkDevice(), vertexBufferMem,	nullptr);
-	vkFreeMemory(renderer.getVkDevice(), indexBufferMem,	nullptr);
-	vertexBufferMem = VK_NULL_HANDLE;
-	indexBufferMem	= VK_NULL_HANDLE;
+	vkFreeMemory(renderer.getVkDevice(), transformationBufferMem,	nullptr);
+	vkFreeMemory(renderer.getVkDevice(), vertexBufferMem,			nullptr);
+	vkFreeMemory(renderer.getVkDevice(), indexBufferMem,			nullptr);
+	transformationBufferMem = VK_NULL_HANDLE;
+	vertexBufferMem			= VK_NULL_HANDLE;
+	indexBufferMem			= VK_NULL_HANDLE;
 
-	vkDestroyBuffer(renderer.getVkDevice(), vertexBuffer, nullptr);
-	vkDestroyBuffer(renderer.getVkDevice(), indexBuffer, nullptr);
-	vertexBuffer = VK_NULL_HANDLE;
-	indexBuffer  = VK_NULL_HANDLE;
+	vkDestroyBuffer(renderer.getVkDevice(), transformationBuffer,	nullptr);
+	vkDestroyBuffer(renderer.getVkDevice(), vertexBuffer,			nullptr);
+	vkDestroyBuffer(renderer.getVkDevice(), indexBuffer,			nullptr);
+	transformationBuffer	= VK_NULL_HANDLE;
+	vertexBuffer			= VK_NULL_HANDLE;
+	indexBuffer				= VK_NULL_HANDLE;
 }
 
 void Application::run() {
@@ -400,6 +419,13 @@ void Application::run() {
 
 void Application::shutdown() {
 	freeVkMemory();
+	deInitDescriptor();
+
+	// ==================================
+	// Free up the shaders
+	// ==================================
+	vkDestroyShaderModule(renderer.getVkDevice(), vertexShader,   nullptr);
+	vkDestroyShaderModule(renderer.getVkDevice(), fragmentShader, nullptr);
 
 	renderer.deInit();
 	glfwDestroyWindow(m_window);
@@ -410,7 +436,117 @@ void Application::shutdown() {
 Application::~Application() {
 }
 
-void Application::compileShaders() { 
+void Application::loadShaders() { 
+	// ======================================
+	// Load the precompiled shaders
+	// ======================================
+	std::string vertexShaderSrc   = convertFileToString("../shaders/vert.spv");
+	std::string fragmentShaderSrc = convertFileToString("../shaders/frag.spv");
+
+	const char* vertexShaderSrcCharPtr   = vertexShaderSrc.data();
+	const char* fragmentShaderSrcCharPtr = fragmentShaderSrc.data();
+
+	VkShaderModuleCreateInfo vertexShaderModuleCreateInfo{};
+	vertexShaderModuleCreateInfo.sType		= VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	vertexShaderModuleCreateInfo.codeSize	= static_cast<uint32_t>(vertexShaderSrc.size());
+	vertexShaderModuleCreateInfo.pCode		= (uint32_t*)vertexShaderSrcCharPtr;
+
+	vkCreateShaderModule(renderer.getVkDevice(), &vertexShaderModuleCreateInfo, nullptr, &vertexShader);
+
+	VkShaderModuleCreateInfo fragmentShaderModuleCreateInfo{};
+	fragmentShaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	fragmentShaderModuleCreateInfo.codeSize = static_cast<uint32_t>(fragmentShaderSrc.size());
+	fragmentShaderModuleCreateInfo.pCode = (uint32_t*)fragmentShaderSrcCharPtr;
+
+	vkCreateShaderModule(renderer.getVkDevice(), &fragmentShaderModuleCreateInfo, nullptr, &fragmentShader);
+
+	// ===========================================
+	// Required data for shader running
+	// ===========================================
+	uint32_t queueIndex = renderer.getVkGraphicsQueueFamilyIndex();
+	VkBufferCreateInfo transformationBufferCreateInfo{};
+	transformationBufferCreateInfo.sType					= VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	transformationBufferCreateInfo.usage					= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+	transformationBufferCreateInfo.size						= 3 * sizeof(glm::mat4);
+	transformationBufferCreateInfo.queueFamilyIndexCount	= 1;
+	transformationBufferCreateInfo.pQueueFamilyIndices		= &queueIndex;
+	transformationBufferCreateInfo.sharingMode				= VK_SHARING_MODE_EXCLUSIVE;
+
+	vkCreateBuffer(renderer.getVkDevice(), &transformationBufferCreateInfo, nullptr, &transformationBuffer);
+
+	VkMemoryRequirements transformationBufferMemReqs{};
+	vkGetBufferMemoryRequirements(renderer.getVkDevice(), transformationBuffer, &transformationBufferMemReqs);
+
+	VkMemoryAllocateInfo trasnformationBufferMemAllocInfo{};
+	trasnformationBufferMemAllocInfo.sType				= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	trasnformationBufferMemAllocInfo.allocationSize		= transformationBufferMemReqs.size;
+	trasnformationBufferMemAllocInfo.memoryTypeIndex	= FindVkMemoryTypeIndex(renderer.getVkPhysicalDeviceMemProperties(), transformationBufferMemReqs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+	vkAllocateMemory(renderer.getVkDevice(), &trasnformationBufferMemAllocInfo, nullptr, &transformationBufferMem);
+	vkBindBufferMemory(renderer.getVkDevice(), transformationBuffer, transformationBufferMem, 0);
+
+	initDescriptor();
+}
+
+void Application::initDescriptor()
+{
+	std::array<VkDescriptorSetLayoutBinding, 1> bindings{};
+	bindings[0].binding				= 0;
+	bindings[0].descriptorType		= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	bindings[0].descriptorCount		= 1;
+	bindings[0].stageFlags			= VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[0].pImmutableSamplers	= nullptr;
+
+	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
+	descriptorSetLayoutCreateInfo.sType			= VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	descriptorSetLayoutCreateInfo.bindingCount	= 1;
+	descriptorSetLayoutCreateInfo.pBindings		= bindings.data();
+	vkCreateDescriptorSetLayout(renderer.getVkDevice(), &descriptorSetLayoutCreateInfo, nullptr, &descriptorSetLayout);
+
+	VkDescriptorPoolSize descriptorSetPoolSize{};
+	descriptorSetPoolSize.type				= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorSetPoolSize.descriptorCount	= 1;
+
+	VkDescriptorPoolCreateInfo descriptorPoolCreateInfo{};
+	descriptorPoolCreateInfo.sType				= VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	//descriptorPoolCreateInfo.flags				= VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	descriptorPoolCreateInfo.maxSets			= 1;
+	descriptorPoolCreateInfo.poolSizeCount		= 1;
+	descriptorPoolCreateInfo.pPoolSizes			= &descriptorSetPoolSize;
+	vkCreateDescriptorPool(renderer.getVkDevice(), &descriptorPoolCreateInfo, nullptr, &descriptorPool);
+
+	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo{};
+	descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	descriptorSetAllocateInfo.descriptorSetCount = 1;
+	descriptorSetAllocateInfo.pSetLayouts = &descriptorSetLayout;
+	descriptorSetAllocateInfo.descriptorPool = descriptorPool;
+	vkAllocateDescriptorSets(renderer.getVkDevice(), &descriptorSetAllocateInfo, &descriptorSet);
+
+	VkDescriptorBufferInfo descriptorBufferInfo{};
+	descriptorBufferInfo.buffer = transformationBuffer;
+	descriptorBufferInfo.offset = 0;
+	descriptorBufferInfo.range	= VK_WHOLE_SIZE;
+
+	VkWriteDescriptorSet descriptorWrite{};
+	descriptorWrite.sType				= VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrite.dstSet				= descriptorSet;
+	descriptorWrite.dstBinding			= 0;
+	descriptorWrite.dstArrayElement		= 0;
+	descriptorWrite.descriptorCount		= 1;
+	descriptorWrite.descriptorType		= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorWrite.pImageInfo			= nullptr;
+	descriptorWrite.pBufferInfo			= &descriptorBufferInfo;
+	descriptorWrite.pTexelBufferView	= nullptr;
+
+	vkUpdateDescriptorSets(renderer.getVkDevice(), 1, &descriptorWrite, 0, nullptr);
+}
+
+void Application::deInitDescriptor()
+{
+	//vkFreeDescriptorSets(renderer.getVkDevice(), descriptorPool, 1, &descriptorSet);
+
+	vkDestroyDescriptorPool(renderer.getVkDevice(), descriptorPool, nullptr);
+	vkDestroyDescriptorSetLayout(renderer.getVkDevice(), descriptorSetLayout, nullptr);
 }
 
 void Application::EventMouseButton(GLFWwindow* window, int button, int action, int mods) {

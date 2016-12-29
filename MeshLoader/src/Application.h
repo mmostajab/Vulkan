@@ -67,7 +67,9 @@ private:
     void update(float time, float elapsedTime);
     void draw();
 
-    void compileShaders();
+    void loadShaders();
+	void initDescriptor();
+	void deInitDescriptor();
 
 private:
 	// Navigation
@@ -112,6 +114,16 @@ private:
 	VkBuffer indexBuffer			= VK_NULL_HANDLE;
 	VkDeviceMemory vertexBufferMem	= VK_NULL_HANDLE;
 	VkDeviceMemory indexBufferMem	= VK_NULL_HANDLE;
+
+	VkShaderModule vertexShader		= VK_NULL_HANDLE;
+	VkShaderModule fragmentShader	= VK_NULL_HANDLE;
+
+	VkBuffer		transformationBuffer		= VK_NULL_HANDLE;
+	VkDeviceMemory	transformationBufferMem		= VK_NULL_HANDLE;
+
+	VkDescriptorPool        descriptorPool		= VK_NULL_HANDLE;
+	VkDescriptorSet			descriptorSet		= VK_NULL_HANDLE;
+	VkDescriptorSetLayout   descriptorSetLayout = VK_NULL_HANDLE;
 
 	void freeVkMemory();
 };

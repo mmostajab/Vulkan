@@ -1,7 +1,7 @@
 #include "helper.h"
 
 std::string convertFileToString(const std::string& filename) {
-	std::ifstream ifile(filename);
+	std::ifstream ifile(filename, std::ios::binary);
 	if (!ifile) {
 		return std::string("");
 	}
