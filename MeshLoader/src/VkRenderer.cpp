@@ -68,6 +68,17 @@ void VkRenderer::createWindowSurface(GLFWwindow * windowPtr)
 	initSynchronization();
 }
 
+void VkRenderer::destroySurface() {
+	deInitSynchronization();
+	deInitFrameBuffer();
+	deInitRenderPass();
+	deInitDepthStencilImage();
+	deInitSwapChainImages();
+	deInitSwapChain();
+
+	vkDestroySurfaceKHR(vkInstance, vkSurface, nullptr);
+}
+
 void VkRenderer::deInit() 
 {
 	// Wait until the commands in the queue are done before starting the deinitialization.
@@ -358,7 +369,7 @@ void VkRenderer::setupDebug(const std::vector<const char*>& requiredExtensions)
 	//vkLayerList.push_back("VK_LAYER_LUNARG_screenshot");
 	//vkLayerList.push_back("VK_LAYER_LUNARG_vktrace");
 	//vkLayerList.push_back("VK_LAYER_RENDERDOC_Capture");
-	//vkLayerList.push_back("VK_LAYER_LUNARG_standard_validation");
+	vkLayerList.push_back("VK_LAYER_LUNARG_standard_validation");
 
 	vkExtensionsList.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 	vkExtensionsList.insert(vkExtensionsList.end(), requiredExtensions.begin(), requiredExtensions.end());

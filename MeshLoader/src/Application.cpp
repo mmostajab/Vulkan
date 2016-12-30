@@ -350,13 +350,15 @@ void Application::run() {
 		// ========================
 		// CPU update buffers.
 		// ========================
+
+		// Process OS events.
+		glfwPollEvents();
+		while (!m_windowsSurfaceMutex.try_lock());
+
 		frame_counter++;
 		double now_time = glfwGetTime();
 		if (frame_counter % 100 == 0) std::cout << "FPS = " << 1.0 / (end_frame - start_frame) << std::endl;
 		update(static_cast<float>(now_time - start_time), static_cast<float>(now_time - start_frame));
-
-		// Process OS events.
-		glfwPollEvents();
 
 		start_frame = glfwGetTime();
 
@@ -462,6 +464,8 @@ void Application::run() {
 		renderer.endRender({ semaphore });
 
 		end_frame = glfwGetTime();
+
+		m_windowsSurfaceMutex.unlock();
 	}
 
 	// Wait until the commands in the queue are done before starting the deinitialization.
@@ -549,7 +553,7 @@ void Application::initDescriptor()
 	bindings[0].binding				= 0;
 	bindings[0].descriptorType		= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	bindings[0].descriptorCount		= 1;
-	bindings[0].stageFlags			= VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[0].stageFlags			= VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	bindings[0].pImmutableSamplers	= nullptr;
 
 	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
@@ -924,11 +928,29 @@ void Application::EventChar(GLFWwindow * window, int codepoint)
 
 // Callback function called by GLFW when window size changes
 void Application::WindowSizeCB(GLFWwindow* window, int width, int height) {
-  m_width = width; m_height = height;
+
+	while (!m_windowsSurfaceMutex.try_lock());
+	// Wait until the commands in the queue are done before starting the deinitialization.
+	vkQueueWaitIdle(renderer.getVkQueue());
+	vkDeviceWaitIdle(renderer.getVkDevice());
+
+	// stop others to submit anything in the queue
+	/*VkFence           surfaceResizingFence	= VK_NULL_HANDLE;
+	VkFenceCreateInfo surfaceResizingFenceCreateInfo{};
+	surfaceResizingFenceCreateInfo.sType	= VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	surfaceResizingFenceCreateInfo.flags	= VK_FENCE_CREATE_SIGNALED_BIT;
+	vkCreateFence(renderer.getVkDevice(), &surfaceResizingFenceCreateInfo, nullptr, &surfaceResizingFence);
+*/
+	m_width = width; m_height = height;
   //glViewport(0, 0, width, height);
   m_aspectRatio = static_cast<double>(width) / static_cast<double>(height);
   //m_navigation.setProject(m_fov, m_aspectRatio, m_zNear);
   //m_navigation.setScreenSize(m_width, m_height);
+
+  renderer.destroySurface();
+  renderer.createWindowSurface(window);
+
+  m_windowsSurfaceMutex.unlock();
 }
 
 void Application::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {

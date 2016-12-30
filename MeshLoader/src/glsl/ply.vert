@@ -9,14 +9,11 @@ layout(std140, set=0, binding=0) uniform Transformations {
 layout( location = 0 ) in vec3 pos;
 layout( location = 1 ) in vec3 normal;
 
-out VS_OUT {
-    vec4 pos;
-    vec3 normal;
-} vs_out;
+layout(location = 0) out vec4 worldPos;
+layout(location = 1) out vec3 worldNormal;
 
 void main(){
-    mat4 mv = viewMatrix * worldMatrix;
-    vs_out.pos = mv * vec4(pos, 1.0f);
-    vs_out.normal = (mv * vec4(normal, 0.0f)).xyz; 
-    gl_Position = projMatrix * vs_out.pos;
+    worldPos    = worldMatrix * vec4(pos, 1.0f);
+    worldNormal = normalize( mat3(worldMatrix) * normal ); 
+    gl_Position = projMatrix * viewMatrix * worldPos;
 }

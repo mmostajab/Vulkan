@@ -24,6 +24,7 @@ public:
 
 	void init(const char* applicationName, const std::vector<const char*>& instanceExtensions, const std::vector<const char*>& deviceExtensions);
 	void createWindowSurface(GLFWwindow* windowPtr);
+	void destroySurface();
 	void deInit();
 	
 	// get functions

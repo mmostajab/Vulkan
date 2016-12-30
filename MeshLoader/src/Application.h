@@ -14,6 +14,7 @@
 #include <string>
 #include <stdlib.h>
 #include <stdio.h>
+#include <mutex>
 
 //#include "Navigation.h"
 
@@ -74,6 +75,8 @@ private:
 	void deInitPipeline();
 
 private:
+	std::mutex m_windowsSurfaceMutex;
+
 	// Navigation
 	//Navigation m_navigation;
 	glm::dvec2 m_prevMousePos;
