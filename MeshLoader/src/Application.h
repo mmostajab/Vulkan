@@ -75,7 +75,6 @@ private:
 	void deInitPipeline();
 
 private:
-	std::mutex m_windowsSurfaceMutex;
 
 	// Navigation
 	//Navigation m_navigation;

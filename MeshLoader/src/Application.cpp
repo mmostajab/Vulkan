@@ -353,7 +353,6 @@ void Application::run() {
 
 		// Process OS events.
 		glfwPollEvents();
-		while (!m_windowsSurfaceMutex.try_lock());
 
 		frame_counter++;
 		double now_time = glfwGetTime();
@@ -464,8 +463,6 @@ void Application::run() {
 		renderer.endRender({ semaphore });
 
 		end_frame = glfwGetTime();
-
-		m_windowsSurfaceMutex.unlock();
 	}
 
 	// Wait until the commands in the queue are done before starting the deinitialization.
@@ -929,7 +926,6 @@ void Application::EventChar(GLFWwindow * window, int codepoint)
 // Callback function called by GLFW when window size changes
 void Application::WindowSizeCB(GLFWwindow* window, int width, int height) {
 
-	while (!m_windowsSurfaceMutex.try_lock());
 	// Wait until the commands in the queue are done before starting the deinitialization.
 	vkQueueWaitIdle(renderer.getVkQueue());
 	vkDeviceWaitIdle(renderer.getVkDevice());
@@ -943,7 +939,6 @@ void Application::WindowSizeCB(GLFWwindow* window, int width, int height) {
 	renderer.destroySurface();
 	renderer.createWindowSurface(window);
 
-	m_windowsSurfaceMutex.unlock();
 }
 
 void Application::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
