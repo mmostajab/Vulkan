@@ -934,23 +934,16 @@ void Application::WindowSizeCB(GLFWwindow* window, int width, int height) {
 	vkQueueWaitIdle(renderer.getVkQueue());
 	vkDeviceWaitIdle(renderer.getVkDevice());
 
-	// stop others to submit anything in the queue
-	/*VkFence           surfaceResizingFence	= VK_NULL_HANDLE;
-	VkFenceCreateInfo surfaceResizingFenceCreateInfo{};
-	surfaceResizingFenceCreateInfo.sType	= VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	surfaceResizingFenceCreateInfo.flags	= VK_FENCE_CREATE_SIGNALED_BIT;
-	vkCreateFence(renderer.getVkDevice(), &surfaceResizingFenceCreateInfo, nullptr, &surfaceResizingFence);
-*/
 	m_width = width; m_height = height;
-  //glViewport(0, 0, width, height);
-  m_aspectRatio = static_cast<double>(width) / static_cast<double>(height);
-  //m_navigation.setProject(m_fov, m_aspectRatio, m_zNear);
-  //m_navigation.setScreenSize(m_width, m_height);
+	//glViewport(0, 0, width, height);
+	m_aspectRatio = static_cast<double>(width) / static_cast<double>(height);
+	//m_navigation.setProject(m_fov, m_aspectRatio, m_zNear);
+	//m_navigation.setScreenSize(m_width, m_height);
 
-  renderer.destroySurface();
-  renderer.createWindowSurface(window);
+	renderer.destroySurface();
+	renderer.createWindowSurface(window);
 
-  m_windowsSurfaceMutex.unlock();
+	m_windowsSurfaceMutex.unlock();
 }
 
 void Application::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
