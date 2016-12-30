@@ -287,6 +287,8 @@ void VkRenderer::initDevice(const std::vector<const char*>& deviceExtensions)
 	deviceCreateInfo.pQueueCreateInfos			= &deviceQueueCreateInfo;
 	deviceCreateInfo.enabledExtensionCount		= static_cast<uint32_t>(deviceExtensions.size());
 	deviceCreateInfo.ppEnabledExtensionNames	= deviceExtensions.data();
+	deviceCreateInfo.enabledLayerCount			= 0;
+	deviceCreateInfo.ppEnabledLayerNames		= nullptr;
 	//deviceCreateInfo.enabledLayerCount		= static_cast<uint32_t>(vkLayerList.size());
 	//deviceCreateInfo.ppEnabledLayerNames		= vkLayerList.data();
 
@@ -346,7 +348,7 @@ void VkRenderer::setupDebug(const std::vector<const char*>& requiredExtensions)
 {
 	//vkLayerList.push_back("VK_LAYER_LUNARG_api_dump");
 	vkLayerList.push_back("VK_LAYER_LUNARG_core_validation");
-	//vkLayerList.push_back("VK_LAYER_LUNARG_monitor");
+	vkLayerList.push_back("VK_LAYER_LUNARG_monitor");
 	vkLayerList.push_back("VK_LAYER_GOOGLE_threading");
 	vkLayerList.push_back("VK_LAYER_LUNARG_swapchain");
 	vkLayerList.push_back("VK_LAYER_LUNARG_image");
@@ -510,7 +512,7 @@ void VkRenderer::initDepthStencilImage()
 	// ===============================
 	// Create Image Handle
 	// ===============================
-
+	uint32_t queueFamilyIndex = getVkGraphicsQueueFamilyIndex();
 	VkImageCreateInfo imageCreateInfo{};
 	imageCreateInfo.sType					= VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageCreateInfo.flags					= 0;
@@ -526,11 +528,11 @@ void VkRenderer::initDepthStencilImage()
 	imageCreateInfo.usage					= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	imageCreateInfo.sharingMode				= VK_SHARING_MODE_EXCLUSIVE;
 	imageCreateInfo.queueFamilyIndexCount	= VK_QUEUE_FAMILY_IGNORED;
-	imageCreateInfo.pQueueFamilyIndices		= nullptr;
+	imageCreateInfo.pQueueFamilyIndices		= &queueFamilyIndex;
 	imageCreateInfo.initialLayout			= VK_IMAGE_LAYOUT_UNDEFINED;
 
 	
-	vkCreateImage(vkDevice, &imageCreateInfo, nullptr, &vkDepthStencilImage);
+	ErrorCheck( vkCreateImage(vkDevice, &imageCreateInfo, nullptr, &vkDepthStencilImage) );
 
 	// ==================================
 	// Allocate Memory for the Image

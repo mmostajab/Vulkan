@@ -15,7 +15,7 @@ int main() {
   //_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_DEBUG);
 #endif
 
-  app.init(1920, 1080);
+  app.init(800, 600);
 
   app.run();
     

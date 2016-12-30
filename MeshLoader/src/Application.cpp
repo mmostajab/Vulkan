@@ -48,10 +48,10 @@ void Application::init(const unsigned int& width, const unsigned int& height) {
 	deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
 	// initializes the renderer.
-	renderer.init("SimpleVulkanApplication", extensions, deviceExtensions);
+	renderer.init("VkMeshLoader", extensions, deviceExtensions);
 	
 	// create a window
-    m_window = glfwCreateWindow(width, height, "Simple Vulkan Application", NULL, NULL);
+    m_window = glfwCreateWindow(width, height, "VkMeshLoader", NULL, NULL);
     if (!m_window)
     {
         glfwTerminate();
