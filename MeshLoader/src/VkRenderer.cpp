@@ -357,19 +357,30 @@ VKAPI_ATTR VkBool32 VulkanDebugCallBackFunc(
 
 void VkRenderer::setupDebug(const std::vector<const char*>& requiredExtensions)
 {
-	//vkLayerList.push_back("VK_LAYER_LUNARG_api_dump");
+	uint32_t instanceLayerPropertiesCount = 0;
+	vkEnumerateInstanceLayerProperties(&instanceLayerPropertiesCount, nullptr);
+	vkLayerProps.resize(instanceLayerPropertiesCount);
+	vkEnumerateInstanceLayerProperties(&instanceLayerPropertiesCount, vkLayerProps.data());
+
+	std::cout << "Instance layers: " << std::endl;
+	for (auto& instLayerProps : vkLayerProps) {
+		std::cout << instLayerProps.layerName << "\t[x]\n";
+		//vkLayerList.push_back(instLayerProps.layerName);
+	}
+
+	
+	vkLayerList.push_back("VK_LAYER_LUNARG_api_dump");
 	vkLayerList.push_back("VK_LAYER_LUNARG_core_validation");
 	vkLayerList.push_back("VK_LAYER_LUNARG_monitor");
-	vkLayerList.push_back("VK_LAYER_GOOGLE_threading");
-	vkLayerList.push_back("VK_LAYER_LUNARG_swapchain");
-	vkLayerList.push_back("VK_LAYER_LUNARG_image");
 	vkLayerList.push_back("VK_LAYER_LUNARG_object_tracker");
-	vkLayerList.push_back("VK_LAYER_GOOGLE_unique_objects");
 	vkLayerList.push_back("VK_LAYER_LUNARG_parameter_validation");
-	//vkLayerList.push_back("VK_LAYER_LUNARG_screenshot");
+	vkLayerList.push_back("VK_LAYER_GOOGLE_threading");
+	vkLayerList.push_back("VK_LAYER_GOOGLE_unique_objects");
+	vkLayerList.push_back("VK_LAYER_LUNARG_standard_validation");
+
 	//vkLayerList.push_back("VK_LAYER_LUNARG_vktrace");
 	//vkLayerList.push_back("VK_LAYER_RENDERDOC_Capture");
-	vkLayerList.push_back("VK_LAYER_LUNARG_standard_validation");
+	
 
 	vkExtensionsList.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 	vkExtensionsList.insert(vkExtensionsList.end(), requiredExtensions.begin(), requiredExtensions.end());
@@ -538,7 +549,7 @@ void VkRenderer::initDepthStencilImage()
 	imageCreateInfo.tiling					= VK_IMAGE_TILING_OPTIMAL;
 	imageCreateInfo.usage					= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	imageCreateInfo.sharingMode				= VK_SHARING_MODE_EXCLUSIVE;
-	imageCreateInfo.queueFamilyIndexCount	= VK_QUEUE_FAMILY_IGNORED;
+	imageCreateInfo.queueFamilyIndexCount	= 1;
 	imageCreateInfo.pQueueFamilyIndices		= &queueFamilyIndex;
 	imageCreateInfo.initialLayout			= VK_IMAGE_LAYOUT_UNDEFINED;
 

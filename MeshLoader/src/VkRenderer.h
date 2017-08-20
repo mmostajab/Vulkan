@@ -112,6 +112,7 @@ private:
 
 
 	// Layres and extensions
+	std::vector<VkLayerProperties>		vkLayerProps;
 	std::vector<const char*>			vkLayerList;
 	std::vector<const char*>			vkExtensionsList;
 	

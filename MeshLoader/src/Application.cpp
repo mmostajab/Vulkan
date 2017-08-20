@@ -381,7 +381,7 @@ void Application::run() {
 		transformationMemBarrier.dstAccessMask	= VK_ACCESS_UNIFORM_READ_BIT;
 
 		vkCmdPipelineBarrier(
-			cmdBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			cmdBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
 			0, 1, &transformationMemBarrier, 0, nullptr, 0, nullptr);
 
 		VkRect2D renderArea{};
@@ -393,7 +393,7 @@ void Application::run() {
 		// First Attachment:	Depth-Stencil
 		// Second Attachment:	Color
 		std::array<VkClearValue, 2> clearValues{};
-		clearValues[0].depthStencil.depth	= 1.0f;
+		clearValues[0].depthStencil.depth	= 1.0f; 
 		clearValues[0].depthStencil.stencil = 0;
 		clearValues[1].color.float32[0]		= static_cast<float>(2.0 * sin((glfwGetTime() - start_time) * 0.5) - 1.0);
 		clearValues[1].color.float32[1]		= static_cast<float>(2.0 * sin((glfwGetTime() - start_time) * 1.0) - 1.0);
@@ -714,7 +714,7 @@ void Application::initPipeline()
 	depthStencilState.depthTestEnable		= VK_TRUE;
 	depthStencilState.depthWriteEnable		= VK_TRUE;
 	depthStencilState.depthCompareOp		= VK_COMPARE_OP_LESS;
-	depthStencilState.depthBoundsTestEnable = VK_TRUE;
+	depthStencilState.depthBoundsTestEnable = VK_FALSE;
 	depthStencilState.stencilTestEnable		= VK_FALSE;
 	depthStencilState.minDepthBounds		= -1.0f;
 	depthStencilState.maxDepthBounds		=  1.0f;
