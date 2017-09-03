@@ -71,14 +71,15 @@ private:
     void update(float time, float elapsedTime);
     void draw();
 
-	void initDescriptor();
-	void deInitDescriptor();
-
-	void initComputePipeline();
-	void deinitComputePipeline();
-
+	void initGraphicsDescriptor();
+	void deInitGraphicsDescriptor();
 	void initGraphicsPipeline();
 	void deInitGraphicsPipeline();
+
+	void initComputeDescriptor();
+	void deInitComputeDescriptor();
+	void initComputePipeline();
+	void deinitComputePipeline();
 
 private:
 	// Key bindings
@@ -104,19 +105,20 @@ private:
     void drawPly();
 
 	// Vulkan 
-	VkRenderer   renderer;
+	VkRenderer renderer;
 
 	// Mesh Info
 	Buffer vertexBuffer;
 	Buffer indexBuffer;
 	Buffer transformationBuffer;
 
-	VkShaderModule vertexShader		= VK_NULL_HANDLE;
-	VkShaderModule fragmentShader	= VK_NULL_HANDLE;
+	VkShaderModule vertexShader = VK_NULL_HANDLE;
+	VkShaderModule fragmentShader = VK_NULL_HANDLE;
+	VkShaderModule computeShader = VK_NULL_HANDLE;
 
-	VkDescriptorPool        descriptorPool		= VK_NULL_HANDLE;
-	VkDescriptorSet			descriptorSet		= VK_NULL_HANDLE;
-	VkDescriptorSetLayout   descriptorSetLayout = VK_NULL_HANDLE;
+	VkDescriptorPool descriptorPool	= VK_NULL_HANDLE;
+	VkDescriptorSet	descriptorSet = VK_NULL_HANDLE;
+	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
 
 	VkSemaphore semaphore;
 	VkCommandBuffer cmdBuffer;

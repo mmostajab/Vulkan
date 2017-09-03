@@ -16,11 +16,13 @@ FIND_PACKAGE(VULKAN REQUIRED)
 # sources from core directories
 set(VkTemplateSources
 	Application.cpp
+	Application_Graphics.cpp
+	Application_Compute.cpp
 	plydatareader.cpp
 	rply.cpp
 	main.cpp
-    helper.cpp
-    VkRenderer.cpp
+	helper.cpp
+	VkRenderer.cpp
 	GraphicsPipeline.cpp
 	ComputePipeline.cpp
 )
@@ -31,7 +33,7 @@ set(VkTemplateHeaders
 	rply.h
 	AABB.h
 	helper.h
-    VkRenderer.h
+	VkRenderer.h
 	GraphicsPipeline.h
 	ComputePipeline.h
 )
