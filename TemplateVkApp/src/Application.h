@@ -51,7 +51,8 @@ public:
 
     void init(const unsigned int& width, const unsigned int& height);
     void init();
-    void run();
+	void graphicsLoop(uint64_t &frame_counter, double &end_frame, double &start_frame, double start_time);
+	void run();
     void shutdown();
 
     ~Application();
@@ -72,11 +73,13 @@ private:
     void draw();
 
 	void initGraphicsDescriptor();
+	void updateGraphicsDescriptorSets();
 	void deInitGraphicsDescriptor();
 	void initGraphicsPipeline();
 	void deInitGraphicsPipeline();
 
 	void initComputeDescriptor();
+	void updateComputeDescriptorSets();
 	void deInitComputeDescriptor();
 	void initComputePipeline();
 	void deinitComputePipeline();

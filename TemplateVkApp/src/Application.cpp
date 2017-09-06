@@ -54,10 +54,10 @@ void Application::init(const unsigned int& width, const unsigned int& height)
 	deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
 	// initializes the renderer.
-	renderer.init("VkMeshLoader", extensions, deviceExtensions);
+	renderer.init("VkTemplateApp", extensions, deviceExtensions);
 	
 	// create a window
-    m_window = glfwCreateWindow(width, height, "VkMeshLoader", NULL, NULL);
+    m_window = glfwCreateWindow(width, height, "VkTemplateApp", NULL, NULL);
     if (!m_window)
     {
         glfwTerminate();
@@ -108,7 +108,9 @@ void Application::init() {
 	semaphore = renderer.createSemaphore();
 
 	initGraphicsPipeline();
-	initComputePipeline();
+
+	// TODO
+	//initComputePipeline();
 }
 
 void Application::create() {
@@ -250,6 +252,129 @@ void Application::freeVkMemory()
 	renderer.destroyBuffer(transformationBuffer);
 }
 
+void Application::graphicsLoop(uint64_t &frame_counter, double &end_frame, double &start_frame, double start_time)
+{
+	// ========================
+	// CPU update buffers.
+	// ========================
+
+	// Process OS events.
+	glfwPollEvents();
+
+	frame_counter++;
+	double now_time = glfwGetTime();
+	if (frame_counter % 100 == 0) std::cout << "FPS = " << 1.0 / (end_frame - start_frame) << std::endl;
+	update(static_cast<float>(now_time - start_time), static_cast<float>(now_time - start_frame));
+
+	start_frame = glfwGetTime();
+
+	// ========================
+	// Begin Render
+	// ========================
+	renderer.beginRender();
+
+	// ========================
+	// Record Command Buffer
+	// ========================
+	VkCommandBufferBeginInfo cmdBufferBeginInfo{};
+	cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	cmdBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	vkBeginCommandBuffer(cmdBuffer, &cmdBufferBeginInfo);
+
+	VkMemoryBarrier transformationMemBarrier{};
+	transformationMemBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+	transformationMemBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+	transformationMemBarrier.dstAccessMask = VK_ACCESS_UNIFORM_READ_BIT;
+
+	vkCmdPipelineBarrier(
+		cmdBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+		0, 1, &transformationMemBarrier, 0, nullptr, 0, nullptr);
+
+	VkRect2D renderArea{};
+	renderArea.offset.x = 0;
+	renderArea.offset.y = 0;
+	renderArea.extent.width = renderer.getVkSurfaceWidth();
+	renderArea.extent.height = renderer.getVkSurfaceHeight();
+
+	// First Attachment:	Depth-Stencil
+	// Second Attachment:	Color
+	std::array<VkClearValue, 2> clearValues{};
+	clearValues[0].depthStencil.depth = 1.0f;
+	clearValues[0].depthStencil.stencil = 0;
+	clearValues[1].color.float32[0] = static_cast<float>(2.0 * sin((glfwGetTime() - start_time) * 0.5) - 1.0);
+	clearValues[1].color.float32[1] = static_cast<float>(2.0 * sin((glfwGetTime() - start_time) * 1.0) - 1.0);
+	clearValues[1].color.float32[2] = static_cast<float>(2.0 * sin((glfwGetTime() - start_time) * 1.5) - 1.0);
+	clearValues[1].color.float32[3] = 1.0f;
+
+	VkRenderPassBeginInfo renderPassBeginInfo{};
+	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassBeginInfo.renderPass = renderer.getVkRenderPass();
+	renderPassBeginInfo.framebuffer = renderer.getVkActiveFrameBuffer();
+	renderPassBeginInfo.renderArea = renderArea;
+	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassBeginInfo.pClearValues = clearValues.data();
+
+	vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	//vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
+	//vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline->getPipeline());
+
+	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->getPipeline());
+
+	VkViewport viewport{};
+	viewport.x = 0;
+	viewport.y = 0;
+	viewport.width = static_cast<float>(renderer.getVkSurfaceWidth());
+	viewport.height = static_cast<float>(renderer.getVkSurfaceHeight());
+	viewport.minDepth = -1.0f;
+	viewport.maxDepth = 1.0f;
+
+	VkRect2D scissor{};
+	scissor.extent.width = renderer.getVkSurfaceWidth();
+	scissor.extent.height = renderer.getVkSurfaceHeight();
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+
+	vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
+	vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+
+	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
+
+	VkDeviceSize noOffset = 0;
+
+	vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &vertexBuffer.vkBuffer, &noOffset);
+	vkCmdBindIndexBuffer(cmdBuffer, indexBuffer.vkBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+	vkCmdDrawIndexed(cmdBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+
+	vkCmdEndRenderPass(cmdBuffer);
+
+	vkEndCommandBuffer(cmdBuffer);
+
+	// ========================
+	// Submit Command Buffer
+	// ========================
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.waitSemaphoreCount = 0;
+	submitInfo.pWaitSemaphores = nullptr;
+	submitInfo.pWaitDstStageMask = nullptr;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &cmdBuffer;
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &semaphore;
+
+	vkQueueSubmit(renderer.getVkQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+
+	// ========================
+	// End Render		
+	// ========================
+	renderer.endRender({ semaphore });
+
+	end_frame = glfwGetTime();
+}
+
 void Application::run() {
 	create();
 	double start_time;
@@ -259,125 +384,7 @@ void Application::run() {
 
 	while (!glfwWindowShouldClose(m_window))
 	{
-		// ========================
-		// CPU update buffers.
-		// ========================
-
-		// Process OS events.
-		glfwPollEvents();
-
-		frame_counter++;
-		double now_time = glfwGetTime();
-		if (frame_counter % 100 == 0) std::cout << "FPS = " << 1.0 / (end_frame - start_frame) << std::endl;
-		update(static_cast<float>(now_time - start_time), static_cast<float>(now_time - start_frame));
-
-		start_frame = glfwGetTime();
-
-		// ========================
-		// Begin Render
-		// ========================
-		renderer.beginRender();
-
-		// ========================
-		// Record Command Buffer
-		// ========================
-		VkCommandBufferBeginInfo cmdBufferBeginInfo{};
-		cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		cmdBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-		vkBeginCommandBuffer(cmdBuffer, &cmdBufferBeginInfo);
-
-		VkMemoryBarrier transformationMemBarrier{};
-		transformationMemBarrier.sType			= VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-		transformationMemBarrier.srcAccessMask	= VK_ACCESS_HOST_WRITE_BIT;
-		transformationMemBarrier.dstAccessMask	= VK_ACCESS_UNIFORM_READ_BIT;
-
-		vkCmdPipelineBarrier(
-			cmdBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
-			0, 1, &transformationMemBarrier, 0, nullptr, 0, nullptr);
-
-		VkRect2D renderArea{};
-		renderArea.offset.x			= 0;
-		renderArea.offset.y			= 0;
-		renderArea.extent.width		= renderer.getVkSurfaceWidth();
-		renderArea.extent.height	= renderer.getVkSurfaceHeight();
-
-		// First Attachment:	Depth-Stencil
-		// Second Attachment:	Color
-		std::array<VkClearValue, 2> clearValues{};
-		clearValues[0].depthStencil.depth	= 1.0f; 
-		clearValues[0].depthStencil.stencil = 0;
-		clearValues[1].color.float32[0]		= static_cast<float>(2.0 * sin((glfwGetTime() - start_time) * 0.5) - 1.0);
-		clearValues[1].color.float32[1]		= static_cast<float>(2.0 * sin((glfwGetTime() - start_time) * 1.0) - 1.0);
-		clearValues[1].color.float32[2]		= static_cast<float>(2.0 * sin((glfwGetTime() - start_time) * 1.5) - 1.0);
-		clearValues[1].color.float32[3]		= 1.0f;
-
-		VkRenderPassBeginInfo renderPassBeginInfo{};
-		renderPassBeginInfo.sType			= VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassBeginInfo.renderPass		= renderer.getVkRenderPass();
-		renderPassBeginInfo.framebuffer		= renderer.getVkActiveFrameBuffer();
-		renderPassBeginInfo.renderArea		= renderArea;
-		renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-		renderPassBeginInfo.pClearValues	= clearValues.data();
-				
-		vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-		vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
-		vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline->getPipeline());
-
-		vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->getPipeline());
-
-		VkViewport viewport{};
-		viewport.x			= 0;
-		viewport.y			= 0;
-		viewport.width		= static_cast<float>(renderer.getVkSurfaceWidth());
-		viewport.height		= static_cast<float>(renderer.getVkSurfaceHeight());
-		viewport.minDepth	= -1.0f;
-		viewport.maxDepth	= 1.0f;
-		
-		VkRect2D scissor{};
-		scissor.extent.width	= renderer.getVkSurfaceWidth();
-		scissor.extent.height	= renderer.getVkSurfaceHeight();
-		scissor.offset.x		= 0;
-		scissor.offset.y		= 0;
-
-		vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
-		vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
-
-		vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
-
-		VkDeviceSize noOffset = 0;
-		
-		vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &vertexBuffer.vkBuffer, &noOffset);
-		vkCmdBindIndexBuffer(cmdBuffer, indexBuffer.vkBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-		vkCmdDrawIndexed(cmdBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-
-		vkCmdEndRenderPass(cmdBuffer);
-
-		vkEndCommandBuffer(cmdBuffer);
-
-		// ========================
-		// Submit Command Buffer
-		// ========================
-		VkSubmitInfo submitInfo{};
-		submitInfo.sType				= VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submitInfo.waitSemaphoreCount	= 0;
-		submitInfo.pWaitSemaphores		= nullptr;
-		submitInfo.pWaitDstStageMask	= nullptr;
-		submitInfo.commandBufferCount	= 1;
-		submitInfo.pCommandBuffers		= &cmdBuffer;
-		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores	= &semaphore;
-
-		vkQueueSubmit(renderer.getVkQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-
-		// ========================
-		// End Render		
-		// ========================
-		renderer.endRender({ semaphore });
-
-		end_frame = glfwGetTime();
+		graphicsLoop(frame_counter, end_frame, start_frame, start_time);
 	}	
 }
 
@@ -393,6 +400,7 @@ void Application::shutdown() {
 	deInitGraphicsPipeline();
 	freeVkMemory();
 	deInitGraphicsDescriptor();
+	deInitComputeDescriptor();
 
 	// ==================================
 	// Free up the shaders
