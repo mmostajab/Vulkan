@@ -51,6 +51,7 @@ public:
 
     void init(const unsigned int& width, const unsigned int& height);
     void init();
+	void computeLoop(uint64_t &frame_counter, double &end_frame, double &start_frame, double start_time);
 	void graphicsLoop(uint64_t &frame_counter, double &end_frame, double &start_frame, double start_time);
 	void run();
     void shutdown();
@@ -119,9 +120,13 @@ private:
 	VkShaderModule fragmentShader = VK_NULL_HANDLE;
 	VkShaderModule computeShader = VK_NULL_HANDLE;
 
-	VkDescriptorPool descriptorPool	= VK_NULL_HANDLE;
-	VkDescriptorSet	descriptorSet = VK_NULL_HANDLE;
-	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+	VkDescriptorPool graphicsDescriptorPool	= VK_NULL_HANDLE;
+	VkDescriptorSet	graphicsDescriptorSet = VK_NULL_HANDLE;
+	VkDescriptorSetLayout graphicsDescriptorSetLayout = VK_NULL_HANDLE;
+
+	VkDescriptorPool computeDescriptorPool = VK_NULL_HANDLE;
+	VkDescriptorSet	computeDescriptorSet = VK_NULL_HANDLE;
+	VkDescriptorSetLayout computeDescriptorSetLayout = VK_NULL_HANDLE;
 
 	VkSemaphore semaphore;
 	VkCommandBuffer cmdBuffer;
@@ -129,6 +134,9 @@ private:
 
 	std::unique_ptr<GraphicsPipeline> graphicsPipeline;
 	std::unique_ptr<ComputePipeline>  computePipeline;
+
+	uint32_t nVertices;
+	const uint32_t localWorkGroupSize[3] = { 128, 1, 1 };
 
 	void freeVkMemory();
 };

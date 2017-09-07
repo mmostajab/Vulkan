@@ -1,0 +1,20 @@
+#version 450 core
+
+layout(constant_id = 0) const uint MAX_VERTICES = 8096;
+
+layout(local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
+
+struct Vertex {
+    vec3 pos;
+    vec3 normal;
+};
+
+layout(set=0, binding=0) buffer buf {
+    Vertex vertices[MAX_VERTICES];
+};
+
+void main()
+{
+    uint vertexID = gl_GlobalInvocationID.x;
+    vertices[vertexID].pos += 0.001f * vertices[vertexID].normal;
+}

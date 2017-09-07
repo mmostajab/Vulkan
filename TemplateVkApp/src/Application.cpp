@@ -110,7 +110,7 @@ void Application::init() {
 	initGraphicsPipeline();
 
 	// TODO
-	//initComputePipeline();
+	initComputePipeline();
 }
 
 void Application::create() {
@@ -207,6 +207,8 @@ void Application::create() {
 	   index = indices[i];
    }
    vkUnmapMemory(renderer.getVkDevice(), indexBuffer.vkBufferMemory);
+
+   this->nVertices = nVertices;
 }
 
 void Application::update(float time, float timeSinceLastFrame) {
@@ -250,6 +252,21 @@ void Application::freeVkMemory()
 	renderer.destroyBuffer(vertexBuffer);
 	renderer.destroyBuffer(indexBuffer);
 	renderer.destroyBuffer(transformationBuffer);
+}
+
+void Application::computeLoop(uint64_t & frame_counter, double & end_frame, double & start_frame, double start_time)
+{
+	VkCommandBufferBeginInfo cmdBufferBeginInfo{};
+	cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	cmdBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	vkBeginCommandBuffer(cmdBuffer, &cmdBufferBeginInfo);
+
+	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline->getPipelineLayout(), 0, 1, &computeDescriptorSet, 0, nullptr);
+	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline->getPipeline());
+	vkCmdDispatch(cmdBuffer, (nVertices + localWorkGroupSize[0] - 1) / localWorkGroupSize[0], 1, 1);
+
+	vkEndCommandBuffer(cmdBuffer);
 }
 
 void Application::graphicsLoop(uint64_t &frame_counter, double &end_frame, double &start_frame, double start_time)
@@ -317,9 +334,6 @@ void Application::graphicsLoop(uint64_t &frame_counter, double &end_frame, doubl
 
 	vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	//vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
-	//vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline->getPipeline());
-
 	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->getPipeline());
 
 	VkViewport viewport{};
@@ -339,7 +353,7 @@ void Application::graphicsLoop(uint64_t &frame_counter, double &end_frame, doubl
 	vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
 	vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
 
-	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
+	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->getPipelineLayout(), 0, 1, &graphicsDescriptorSet, 0, nullptr);
 
 	VkDeviceSize noOffset = 0;
 
@@ -384,6 +398,7 @@ void Application::run() {
 
 	while (!glfwWindowShouldClose(m_window))
 	{
+		//computeLoop(frame_counter, end_frame, start_frame, start_time);
 		graphicsLoop(frame_counter, end_frame, start_frame, start_time);
 	}	
 }
