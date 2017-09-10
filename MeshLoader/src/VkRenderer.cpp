@@ -368,7 +368,7 @@ void VkRenderer::setupDebug(const std::vector<const char*>& requiredExtensions)
 		//vkLayerList.push_back(instLayerProps.layerName);
 	}
 
-	
+#ifdef ENABLE_VULKAN_DEBUGGING_LAYERS
 	vkLayerList.push_back("VK_LAYER_LUNARG_api_dump");
 	vkLayerList.push_back("VK_LAYER_LUNARG_core_validation");
 	vkLayerList.push_back("VK_LAYER_LUNARG_monitor");
@@ -377,6 +377,7 @@ void VkRenderer::setupDebug(const std::vector<const char*>& requiredExtensions)
 	vkLayerList.push_back("VK_LAYER_GOOGLE_threading");
 	vkLayerList.push_back("VK_LAYER_GOOGLE_unique_objects");
 	vkLayerList.push_back("VK_LAYER_LUNARG_standard_validation");
+#endif
 
 	//vkLayerList.push_back("VK_LAYER_LUNARG_vktrace");
 	//vkLayerList.push_back("VK_LAYER_RENDERDOC_Capture");

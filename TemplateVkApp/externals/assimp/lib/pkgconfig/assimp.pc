@@ -1,0 +1,11 @@
+prefix=E:\Dependencies\Assimp-install
+exec_prefix=E:\Dependencies\Assimp-install/
+libdir=E:\Dependencies\Assimp-install/lib
+includedir=E:\Dependencies\Assimp-install/include/assimp
+
+Name: Assimp
+Description: Import various well-known 3D model formats in an uniform manner.
+Version: 4.0.1
+Libs: -L${libdir} -lassimp
+Libs.private:  
+Cflags: -I${includedir}
