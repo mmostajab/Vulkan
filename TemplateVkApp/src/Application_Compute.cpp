@@ -36,7 +36,7 @@ void Application::initComputeDescriptor()
 	descriptorSetAllocateInfo.descriptorPool = computeDescriptorPool;
 	vkAllocateDescriptorSets(renderer.getVkDevice(), &descriptorSetAllocateInfo, &computeDescriptorSet);
 
-	//updateComputeDescriptorSets();
+	updateComputeDescriptorSets();
 }
 
 void Application::updateComputeDescriptorSets()

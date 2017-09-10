@@ -355,7 +355,7 @@ VKAPI_ATTR VkBool32 VulkanDebugCallBackFunc(
 	return false; // Go to the upper layer.
 }
 
-#define ENABLE_VULKAN_DEBUGGING_LAYERS
+//#define ENABLE_VULKAN_DEBUGGING_LAYERS
 void VkRenderer::setupDebug(const std::vector<const char*>& requiredExtensions)
 {
 	uint32_t instanceLayerPropertiesCount = 0;

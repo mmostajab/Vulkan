@@ -50,9 +50,6 @@ public:
     Application();
 
     void init(const unsigned int& width, const unsigned int& height);
-    void init();
-	void computeLoop(uint64_t &frame_counter, double &end_frame, double &start_frame, double start_time);
-	void graphicsLoop(uint64_t &frame_counter, double &end_frame, double &start_frame, double start_time);
 	void run();
     void shutdown();
 
@@ -69,9 +66,13 @@ public:
 	void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 private:
+	void init();
     void create();
-    void update(float time, float elapsedTime);
-    void draw();
+    void update(float elapsedTime, float elapsedSinceLastFrame);
+    void draw(float elapsedTime, float elapsedSinceLastFrame);
+
+	void computeLoop(float elapsedTime, float elapsedSinceLastFrame);
+	void graphicsLoop(float elapsedTime, float elapsedSinceLastFrame);
 
 	void initGraphicsDescriptor();
 	void updateGraphicsDescriptorSets();
@@ -98,16 +99,7 @@ private:
 	double       m_aspectRatio, m_zNear;
 	double       m_arcBallRadius;
     unsigned int m_width, m_height;
-
-	// Clear values for color (background) and depth buffer.
-    glm::vec4 back_color;
-    float     one;
    
-    // Ply buffers
-    std::vector<PlyObjVertex> vertices;
-    std::vector<unsigned int> indices;
-    void drawPly();
-
 	// Vulkan 
 	VkRenderer renderer;
 
@@ -136,6 +128,7 @@ private:
 	std::unique_ptr<ComputePipeline>  computePipeline;
 
 	uint32_t nVertices;
+	uint32_t nIndices;
 	const uint32_t localWorkGroupSize[3] = { 128, 1, 1 };
 
 	void freeVkMemory();

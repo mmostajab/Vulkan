@@ -5,6 +5,7 @@
 #include "application.h"
 #include "plydatareader.h"
 #include "GraphicsPipeline.h"
+#include "MeshLoader.h"
 
 // STD
 #include <iostream>
@@ -87,9 +88,6 @@ void Application::init() {
 	m_aspectRatio = static_cast<double>(m_width) / m_height;
 	m_zNear = 0.01;
 
-	back_color = glm::vec4(0.2f, 0.6f, 0.7f, 1.0f);
-	one = 1.0f;
-
 	// Static Members
 	m_controlKeyHold = false;
 	m_altKeyHold = false;
@@ -106,109 +104,79 @@ void Application::init() {
 	cmdPool = renderer.createCommandPool();
 	cmdBuffer = renderer.createCommandBuffer(cmdPool);
 	semaphore = renderer.createSemaphore();
-
-	initGraphicsPipeline();
-
-	// TODO
-	initComputePipeline();
 }
 
 void Application::create() {
+	MeshLoader meshLoader("../data/bunny.ply");
+	auto& vertices = meshLoader.vertices;
+	auto& indices = meshLoader.indices;
+	
+	uint32_t nVertices = static_cast<uint32_t>(vertices.size());
+	uint32_t nFaces = static_cast<uint32_t>(indices.size() / 3);
 
-#ifdef PORSCHE_MESH
-   PlyDataReader::getSingletonPtr()->readDataInfo("../data/big_porsche.ply", nullptr, 0);
-#elif defined(SPHERE_MESH)
-   PlyDataReader::getSingletonPtr()->readDataInfo("../data/sphere.ply", nullptr, 0);
-#else
-   PlyDataReader::getSingletonPtr()->readDataInfo("../data/bunny.ply", nullptr, 0);
-#endif
+	assert(nVertices > 0);
+	assert(nFaces > 0);
 
-   unsigned int nVertices = PlyDataReader::getSingletonPtr()->getNumVertices();
-   unsigned int nFaces    = PlyDataReader::getSingletonPtr()->getNumFaces();
+	glm::vec3 center;
+	glm::float32 min_y = vertices[0].position.y;
+	size_t i = 0;
+	for (; i < vertices.size()-4; i++)
+	{
+		center += vertices[i].position;
+		min_y = glm::min(min_y, vertices[i].position.y);
+	}
+	center /= vertices.size();
 
 
-   vertices.resize(nVertices+4);
-   indices.resize(nFaces * 3+6);
+	for (size_t i = 0; i < vertices.size(); i++)
+	{
+		vertices[i].position -= center;
+	}
+
+	for (size_t i = 0; i < vertices.size(); i++)
+	{
+		vertices[i].position *= 5.0;
+	}
+
+	// ============================================
+	// Create Vulkan Buffer for the mesh vertices
+	// ============================================
+	vertexBuffer = renderer.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, vertices.size() * sizeof(PlyObjVertex));
    
-   PlyDataReader::getSingletonPtr()->readData(vertices.data(), indices.data());
+	// =============================
+	// Fill Vertex Buffer
+	// =============================
+	void* verticesData = nullptr;
+	vkMapMemory(renderer.getVkDevice(), vertexBuffer.vkBufferMemory, 0, VK_WHOLE_SIZE, 0, &verticesData);
+	for (size_t i = 0; i < vertices.size(); i++) {
+		PlyObjVertex& vertex = ((PlyObjVertex*)verticesData)[i];
+		vertex.pos		= vertices[i].position;
+		vertex.normal	= glm::normalize(vertices[i].normal);
+	}
+	vkUnmapMemory(renderer.getVkDevice(), vertexBuffer.vkBufferMemory);
 
-   glm::vec3 center;
-   glm::float32 min_y = vertices[0].pos.y;
-   size_t i = 0;
-   for (; i < vertices.size()-4; i++) {
-     center += vertices[i].pos;
-     min_y = glm::min(min_y, vertices[i].pos.y);
-   }
-   center /= vertices.size();
+	// ============================================
+	// Create Vulkan Buffer for the mesh indices
+	// ============================================
+	indexBuffer = renderer.createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, indices.size() * sizeof(unsigned int));
 
-#ifdef ADD_GROUND
-   float width = 400.0f;
-   vertices[nVertices + 0].pos = glm::vec3(-width, min_y, -width);
-   vertices[nVertices + 0].normal = glm::vec3(0, 1, 0);
-   vertices[nVertices + 1].pos = glm::vec3(-width, min_y, width);
-   vertices[nVertices + 1].normal = glm::vec3(0, 1, 0);
-   vertices[nVertices + 2].pos = glm::vec3( width, min_y, -width);
-   vertices[nVertices + 2].normal = glm::vec3(0, 1, 0);
-   vertices[nVertices + 3].pos = glm::vec3( width, min_y, width);
-   vertices[nVertices + 3].normal = glm::vec3(0, 1, 0);
+	// =============================
+	// Fill Index Buffer
+	// =============================
+	void* indicesData = nullptr;
+	vkMapMemory(renderer.getVkDevice(), indexBuffer.vkBufferMemory, 0, VK_WHOLE_SIZE, 0, &indicesData);
+	for (size_t i = 0; i < indices.size(); i++) {
+		unsigned int& index = ((unsigned int*)indicesData)[i];
+		index = indices[i];
+	}
+	vkUnmapMemory(renderer.getVkDevice(), indexBuffer.vkBufferMemory);
 
-   indices[3 * nFaces + 0] = nVertices + 0;
-   indices[3 * nFaces + 1] = nVertices + 1;
-   indices[3 * nFaces + 2] = nVertices + 2;
-   indices[3 * nFaces + 3] = nVertices + 2;
-   indices[3 * nFaces + 4] = nVertices + 1;
-   indices[3 * nFaces + 5] = nVertices + 3;
-#endif
+	this->nVertices = static_cast<uint32_t>(vertices.size());
+	this->nIndices = static_cast<uint32_t>(indices.size());
 
-   for (size_t i = 0; i < vertices.size(); i++) {
-     vertices[i].pos -= center;
-   }
 
-   for (size_t i = 0; i < vertices.size(); i++) {
-
-#ifdef PORSCHE_MESH
-     vertices[i].pos *= 0.13;
-#elif defined(SPHERE_MESH)
-     vertices[i].pos *= m_arcBallRadius;
-#else
-     vertices[i].pos *= 5.0;
-#endif
-   }
-
-   // ============================================
-   // Create Vulkan Buffer for the mesh vertices
-   // ============================================
-   vertexBuffer = renderer.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertices.size() * sizeof(PlyObjVertex));
-   
-   // =============================
-   // Fill Vertex Buffer
-   // =============================
-   void* verticesData = nullptr;
-   vkMapMemory(renderer.getVkDevice(), vertexBuffer.vkBufferMemory, 0, VK_WHOLE_SIZE, 0, &verticesData);
-   for (size_t i = 0; i < vertices.size(); i++) {
-	   PlyObjVertex& vertex = ((PlyObjVertex*)verticesData)[i];
-	   vertex.pos		= vertices[i].pos;
-	   vertex.normal	= vertices[i].normal;
-   }
-   vkUnmapMemory(renderer.getVkDevice(), vertexBuffer.vkBufferMemory);
-
-   // ============================================
-   // Create Vulkan Buffer for the mesh indices
-   // ============================================
-   indexBuffer = renderer.createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, indices.size() * sizeof(unsigned int));
-
-   // =============================
-   // Fill Index Buffer
-   // =============================
-   void* indicesData = nullptr;
-   vkMapMemory(renderer.getVkDevice(), indexBuffer.vkBufferMemory, 0, VK_WHOLE_SIZE, 0, &indicesData);
-   for (size_t i = 0; i < indices.size(); i++) {
-	   unsigned int& index = ((unsigned int*)indicesData)[i];
-	   index = indices[i];
-   }
-   vkUnmapMemory(renderer.getVkDevice(), indexBuffer.vkBufferMemory);
-
-   this->nVertices = nVertices;
+	initGraphicsPipeline();
+	initComputePipeline();
 }
 
 void Application::update(float time, float timeSinceLastFrame) {
@@ -241,10 +209,9 @@ void Application::update(float time, float timeSinceLastFrame) {
 	vkUnmapMemory(renderer.getVkDevice(), transformationBuffer.vkBufferMemory);
 }
 
-void Application::draw() {
-}
-
-void Application::drawPly() {
+void Application::draw(float elapsedTime, float elapsedSinceLastFrame) {
+	computeLoop(elapsedTime, elapsedSinceLastFrame);
+	graphicsLoop(elapsedTime, elapsedSinceLastFrame);
 }
 
 void Application::freeVkMemory()
@@ -254,42 +221,48 @@ void Application::freeVkMemory()
 	renderer.destroyBuffer(transformationBuffer);
 }
 
-void Application::computeLoop(uint64_t & frame_counter, double & end_frame, double & start_frame, double start_time)
+void Application::computeLoop(float elapsedTime, float elapsedSinceLastFrame)
 {
+
 	VkCommandBufferBeginInfo cmdBufferBeginInfo{};
 	cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	cmdBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	static bool increase = true;
+	static int i = 0;
+	if (i > 10) increase = false;
+	if (i < -10) increase = true;
+	if (increase) i++; else i--;
 
 	vkBeginCommandBuffer(cmdBuffer, &cmdBufferBeginInfo);
 
 	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline->getPipelineLayout(), 0, 1, &computeDescriptorSet, 0, nullptr);
 	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline->getPipeline());
+	vkCmdPushConstants(cmdBuffer, computePipeline->getPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, 4, &i);
 	vkCmdDispatch(cmdBuffer, (nVertices + localWorkGroupSize[0] - 1) / localWorkGroupSize[0], 1, 1);
 
 	vkEndCommandBuffer(cmdBuffer);
+
+	// ========================
+	// Submit Command Buffer
+	// ========================
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.waitSemaphoreCount = 0;
+	submitInfo.pWaitSemaphores = nullptr;
+	submitInfo.pWaitDstStageMask = nullptr;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &cmdBuffer;
+	submitInfo.signalSemaphoreCount = 0;
+	submitInfo.pSignalSemaphores = nullptr;
+
+	vkQueueSubmit(renderer.getVkQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+
+	vkQueueWaitIdle(renderer.getVkQueue());
 }
 
-void Application::graphicsLoop(uint64_t &frame_counter, double &end_frame, double &start_frame, double start_time)
+void Application::graphicsLoop(float elapsedTime, float elapsedSinceLastFrame)
 {
-	// ========================
-	// CPU update buffers.
-	// ========================
-
-	// Process OS events.
-	glfwPollEvents();
-
-	frame_counter++;
-	double now_time = glfwGetTime();
-	if (frame_counter % 100 == 0) std::cout << "FPS = " << 1.0 / (end_frame - start_frame) << std::endl;
-	update(static_cast<float>(now_time - start_time), static_cast<float>(now_time - start_frame));
-
-	start_frame = glfwGetTime();
-
-	// ========================
-	// Begin Render
-	// ========================
-	renderer.beginRender();
-
 	// ========================
 	// Record Command Buffer
 	// ========================
@@ -319,9 +292,9 @@ void Application::graphicsLoop(uint64_t &frame_counter, double &end_frame, doubl
 	std::array<VkClearValue, 2> clearValues{};
 	clearValues[0].depthStencil.depth = 1.0f;
 	clearValues[0].depthStencil.stencil = 0;
-	clearValues[1].color.float32[0] = static_cast<float>(2.0 * sin((glfwGetTime() - start_time) * 0.5) - 1.0);
-	clearValues[1].color.float32[1] = static_cast<float>(2.0 * sin((glfwGetTime() - start_time) * 1.0) - 1.0);
-	clearValues[1].color.float32[2] = static_cast<float>(2.0 * sin((glfwGetTime() - start_time) * 1.5) - 1.0);
+	clearValues[1].color.float32[0] = static_cast<float>(2.0 * sin(elapsedTime * 0.5) - 1.0);
+	clearValues[1].color.float32[1] = static_cast<float>(2.0 * sin(elapsedTime * 1.0) - 1.0);
+	clearValues[1].color.float32[2] = static_cast<float>(2.0 * sin(elapsedTime * 1.5) - 1.0);
 	clearValues[1].color.float32[3] = 1.0f;
 
 	VkRenderPassBeginInfo renderPassBeginInfo{};
@@ -360,7 +333,7 @@ void Application::graphicsLoop(uint64_t &frame_counter, double &end_frame, doubl
 	vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &vertexBuffer.vkBuffer, &noOffset);
 	vkCmdBindIndexBuffer(cmdBuffer, indexBuffer.vkBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-	vkCmdDrawIndexed(cmdBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+	vkCmdDrawIndexed(cmdBuffer, nIndices, 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(cmdBuffer);
 
@@ -380,13 +353,6 @@ void Application::graphicsLoop(uint64_t &frame_counter, double &end_frame, doubl
 	submitInfo.pSignalSemaphores = &semaphore;
 
 	vkQueueSubmit(renderer.getVkQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-
-	// ========================
-	// End Render		
-	// ========================
-	renderer.endRender({ semaphore });
-
-	end_frame = glfwGetTime();
 }
 
 void Application::run() {
@@ -398,8 +364,29 @@ void Application::run() {
 
 	while (!glfwWindowShouldClose(m_window))
 	{
-		//computeLoop(frame_counter, end_frame, start_frame, start_time);
-		graphicsLoop(frame_counter, end_frame, start_frame, start_time);
+		// ========================
+		// CPU update buffers.
+		// ========================
+
+		// Process OS events.
+		glfwPollEvents();
+
+		frame_counter++;
+		double now_time = glfwGetTime();
+		if (frame_counter % 100 == 0) std::cout << "FPS = " << 1.0 / (end_frame - start_frame) << std::endl;
+
+		float elapsedTime = static_cast<float>(now_time - start_time);
+		float elapsedSinceLastFrame = static_cast<float>(now_time - start_frame);
+
+		update(elapsedTime, elapsedSinceLastFrame);
+
+		start_frame = glfwGetTime();
+
+		renderer.beginRender();
+		draw(elapsedTime, elapsedSinceLastFrame);
+		renderer.endRender({ semaphore });
+
+		end_frame = glfwGetTime();
 	}	
 }
 

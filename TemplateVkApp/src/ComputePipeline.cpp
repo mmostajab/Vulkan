@@ -10,12 +10,17 @@ ComputePipeline::ComputePipeline(
 	// ============================
 	// Create Pipeline layout
 	// ============================
+	VkPushConstantRange pushConstantRange{};
+	pushConstantRange.offset = 0;
+	pushConstantRange.size = sizeof(int);
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
 	pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(descriptorLayouts.size());
 	pipelineLayoutCreateInfo.pSetLayouts = descriptorLayouts.data();
-	pipelineLayoutCreateInfo.pushConstantRangeCount = 0;
-	pipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
+	pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+	pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
 
 	vkCreatePipelineLayout(renderer.getVkDevice(), &pipelineLayoutCreateInfo, nullptr, &pipelineLayout);
 
