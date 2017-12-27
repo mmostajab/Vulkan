@@ -1,1 +1,1 @@
-This project is implemented while I was going through vulkan-tutorials.com website tutorials.
+This project is implemented while I was going through http://vulkan-tutorial.com/ website tutorials.
