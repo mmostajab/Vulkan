@@ -1,6 +1,7 @@
 #include "GraphicsPipeline.h"
 
 #include "VkRenderer.h"
+#include "Shader.h"
 
 #include <array>
 
@@ -9,7 +10,7 @@
 GraphicsPipeline::GraphicsPipeline(
 	const VkRenderer& renderer, 
 	const std::vector<VkDescriptorSetLayout>& descriptorLayouts,
-	const std::vector<VkPipelineShaderStageCreateInfo>& shaderStagesCreateInfo,
+	const std::vector<ShaderStage>& shaderStages,
 	const std::vector<VkVertexInputAttributeDescription>& vertexInputAttribDescriptions,
 	const std::vector<VkVertexInputBindingDescription>& vertexInputingBindingDecriptions,
 	VkPrimitiveTopology primitiveTopology): renderer(renderer)
@@ -122,6 +123,22 @@ GraphicsPipeline::GraphicsPipeline(
 	dynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
 	dynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicState.size());
 	dynamicStateCreateInfo.pDynamicStates = dynamicState.data();
+
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStagesCreateInfo;
+	for (auto& stage : shaderStages)
+	{
+		VkPipelineShaderStageCreateInfo shaderStageCreateInfo{};
+		shaderStageCreateInfo.sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		shaderStageCreateInfo.pNext               = 0;
+		shaderStageCreateInfo.stage               = stage.getVkShaderType();
+		shaderStageCreateInfo.module              = stage.getVkShaderModule();
+		shaderStageCreateInfo.pName               = stage.getEntryFuncName();
+		shaderStageCreateInfo.flags               = 0;
+		shaderStageCreateInfo.pSpecializationInfo = nullptr;
+
+		shaderStagesCreateInfo.push_back(shaderStageCreateInfo);
+	}
+
 
 	// ============================
 	// Create Pipeline

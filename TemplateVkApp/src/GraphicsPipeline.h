@@ -5,6 +5,7 @@
 #include <vulkan/vulkan.h>
 
 class VkRenderer;
+class ShaderStage;
 
 class GraphicsPipeline
 {
@@ -12,7 +13,7 @@ public:
 	GraphicsPipeline(
 		const VkRenderer& renderer, 
 		const std::vector<VkDescriptorSetLayout>& descriptorLayouts, 
-		const std::vector<VkPipelineShaderStageCreateInfo>& shaderStagesCreateInfo,
+		const std::vector<ShaderStage>& shaderStages,
 		const std::vector<VkVertexInputAttributeDescription>& vertexInputAttribDescriptions,
 		const std::vector<VkVertexInputBindingDescription>& vertexInputingBindingDecriptions,
 		VkPrimitiveTopology primitiveTopology

@@ -42,7 +42,7 @@ void Application::initComputeDescriptor()
 void Application::updateComputeDescriptorSets()
 {
 	VkDescriptorBufferInfo descriptorBufferInfo{};
-	descriptorBufferInfo.buffer = vertexBuffer.vkBuffer;
+	descriptorBufferInfo.buffer = vertexBuffer.getVkBuffer();
 	descriptorBufferInfo.offset = 0;
 	descriptorBufferInfo.range = VK_WHOLE_SIZE;
 
@@ -73,19 +73,10 @@ void Application::initComputePipeline()
 	// ======================================
 	// Load the precompiled shaders
 	// ======================================
-	computeShader = renderer.createShaderModule("../shaders/comp.spv");
+	ShaderStage computeShader;
+	computeShader.fromGLSLFile(renderer.getVkDevice(), "glsl/meshProcessor.comp", VK_SHADER_STAGE_COMPUTE_BIT, "main");
 
 	initComputeDescriptor();
-
-	// ============================
-	// Pipeline Preparation
-	// ============================
-	VkPipelineShaderStageCreateInfo shaderStagesCreateInfo{};
-	shaderStagesCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	shaderStagesCreateInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-	shaderStagesCreateInfo.module = computeShader;
-	shaderStagesCreateInfo.pName = "main";
-	shaderStagesCreateInfo.pSpecializationInfo = nullptr;
 	
 	// position:
 	std::vector<VkVertexInputAttributeDescription> inputAttribDescription(2);
@@ -108,7 +99,7 @@ void Application::initComputePipeline()
 
 	computePipeline =
 		std::unique_ptr<ComputePipeline>(
-			new ComputePipeline(renderer, { computeDescriptorSetLayout }, shaderStagesCreateInfo)
+			new ComputePipeline(renderer, { computeDescriptorSetLayout }, computeShader)
 			);
 }
 

@@ -16,10 +16,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-struct Buffer {
-	VkBuffer vkBuffer;
-	VkDeviceMemory vkBufferMemory;
-};
+#include "BufferAllocator.h"
 
 class VkRenderer
 {
@@ -47,6 +44,8 @@ public:
 
 	uint32_t                                    getVkSurfaceWidth()					const;
 	uint32_t									getVkSurfaceHeight()				const;
+
+	const BufferAllocator*                      getBufferAllocator()                const;
 
 	// Rendering related.
 	void beginRender();
@@ -103,6 +102,7 @@ private:
 	uint32_t							vkSurfaceWidth			= UINT32_MAX;
 	uint32_t							vkSurfaceHeight			= UINT32_MAX;
 	uint32_t							vkSwapChainImageCount   = 3;
+	std::unique_ptr<BufferAllocator>    m_bufferAllocatorPtr    = nullptr;
 
 	// Rendering
 	VkFence                             vkSwapChainImageAvailable	= VK_NULL_HANDLE;

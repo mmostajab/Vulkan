@@ -25,4 +25,7 @@ uint32_t FindVkMemoryTypeIndex(
 	const VkMemoryRequirements& memRequirements,
 	const VkMemoryPropertyFlags& memProperties);
 
+
+bool executeCommand(char* cmd, const char* directory);
+bool deleteFile(const char* path);
 #endif

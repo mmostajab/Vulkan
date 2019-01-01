@@ -12,6 +12,7 @@
 
 #include "GraphicsPipeline.h"
 #include "ComputePipeline.h"
+#include "Shader.h"
 
 // STD
 #include <string>
@@ -108,8 +109,6 @@ private:
 	Buffer indexBuffer;
 	Buffer transformationBuffer;
 
-	VkShaderModule vertexShader = VK_NULL_HANDLE;
-	VkShaderModule fragmentShader = VK_NULL_HANDLE;
 	VkShaderModule computeShader = VK_NULL_HANDLE;
 
 	VkDescriptorPool graphicsDescriptorPool	= VK_NULL_HANDLE;

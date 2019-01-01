@@ -7,15 +7,20 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+set(VULKAN_MEMORY_ALLOCATOR_INCLUDE_DIR ${VkTemplateHome}/externals/VulkanMemoryAllocator/src)
+
 # include macros
 INCLUDE(${VkTemplateHome}/cmake/macros.cmake)
 
 MESSAGE(STATUS "Configuring VkTemplate Source")
 
-# VULKAN
+# Window system
 FIND_PACKAGE(glfw3  REQUIRED)
+# Math Lib
 FIND_PACKAGE(GLM    REQUIRED)
+# VULKAN
 FIND_PACKAGE(VULKAN REQUIRED)
+# Asset Importer
 FIND_PACKAGE(ASSIMP REQUIRED)
 
 # sources from core directories
@@ -31,6 +36,9 @@ set(VkTemplateSources
 	GraphicsPipeline.cpp
 	ComputePipeline.cpp
 	MeshLoader.cpp
+	Buffer.cpp
+	BufferAllocator.cpp
+	Shader.cpp
 )
 
 set(VkTemplateHeaders
@@ -43,9 +51,12 @@ set(VkTemplateHeaders
 	GraphicsPipeline.h
 	ComputePipeline.h
 	MeshLoader.h
+	Buffer.h
+	BufferAllocator.h
+	Shader.h
 )
 
-include_directories(${Vulkan_INCLUDE_DIR} ${GLFW_INCLUDE_DIRS} ${GLM_INCLUDE_DIR} ${ASSIMP_INCLUDE_DIR})
+include_directories(${Vulkan_INCLUDE_DIR} ${GLFW_INCLUDE_DIRS} ${GLM_INCLUDE_DIR} ${ASSIMP_INCLUDE_DIR} ${VULKAN_MEMORY_ALLOCATOR_INCLUDE_DIR})
 
 ADD_DEFINITIONS(${VkTemplateGlobalDefinitions})
 
@@ -58,16 +69,20 @@ add_executable(VkTemplate
 
 TARGET_LINK_LIBRARIES(VkTemplate ${Vulkan_LIBRARY} glfw ${ASSIMP_LIBRARY_RELEASE})
 
-set_target_properties(VkTemplate PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin/Debug")
+set_target_properties(VkTemplate PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin/")
 
 add_custom_target(copy-VkTemplate-files ALL
     COMMAND cmake -E copy_directory ${CMAKE_SOURCE_DIR}/data ${CMAKE_BINARY_DIR}/bin/data
     DEPENDS ${MY_TARGET}
 	COMMAND cmake -E copy_directory ${CMAKE_SOURCE_DIR}/src/shaders ${CMAKE_BINARY_DIR}/bin/shaders
     DEPENDS ${MY_TARGET}
-	COMMAND cmake -E copy ${CMAKE_SOURCE_DIR}/externals/assimp/bin/assimp-vc140-mt.dll ${CMAKE_BINARY_DIR}/bin/Release
+	COMMAND cmake -E copy_directory ${CMAKE_SOURCE_DIR}/src/glsl ${CMAKE_BINARY_DIR}/bin/glsl
+    DEPENDS ${MY_TARGET}
+	COMMAND cmake -E copy_directory ${CMAKE_SOURCE_DIR}/externals/shaderCompilers ${CMAKE_BINARY_DIR}/bin/shaderCompilers
+    DEPENDS ${MY_TARGET}
+	COMMAND cmake -E copy ${CMAKE_SOURCE_DIR}/externals/assimp/bin/assimp-vc140-mt.dll ${CMAKE_BINARY_DIR}/bin/Debug/
 	DEPENDS ${MY_TARGET}
-	COMMAND cmake -E copy ${CMAKE_SOURCE_DIR}/externals/assimp/bin/assimp-vc140-mt.dll ${CMAKE_BINARY_DIR}/bin/Debug
+	COMMAND cmake -E copy ${CMAKE_SOURCE_DIR}/externals/assimp/bin/assimp-vc140-mt.dll ${CMAKE_BINARY_DIR}/bin/
 	DEPENDS ${MY_TARGET}
 )
 add_dependencies(VkTemplate copy-VkTemplate-files)

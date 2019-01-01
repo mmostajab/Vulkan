@@ -305,6 +305,8 @@ void VkRenderer::initDevice(const std::vector<const char*>& deviceExtensions)
 
 	ErrorCheck( vkCreateDevice(vkGPU, &deviceCreateInfo, nullptr, &vkDevice) );
 
+	m_bufferAllocatorPtr = std::make_unique<BufferAllocator>(vkGPU, vkDevice);
+
 	vkGetDeviceQueue(vkDevice, vkGraphicsFamilyIndex, 0, &vkQueue);
 }
 
@@ -346,16 +348,17 @@ VKAPI_ATTR VkBool32 VulkanDebugCallBackFunc(
 	std::cout << msg.str() << std::endl; 
 
 #ifdef _WIN32
-	if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
-		MessageBoxA(0, msg.str().c_str(), "ERROR", MB_OK);
-	}
+	//if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT) 
+	//{
+	//	MessageBoxA(0, msg.str().c_str(), "ERROR", MB_OK);
+	//}
 #endif
 
 	//return true;  // Stops here.
 	return false; // Go to the upper layer.
 }
 
-//#define ENABLE_VULKAN_DEBUGGING_LAYERS
+#define ENABLE_VULKAN_DEBUGGING_LAYERS
 void VkRenderer::setupDebug(const std::vector<const char*>& requiredExtensions)
 {
 	uint32_t instanceLayerPropertiesCount = 0;
@@ -370,13 +373,13 @@ void VkRenderer::setupDebug(const std::vector<const char*>& requiredExtensions)
 	}
 
 #ifdef ENABLE_VULKAN_DEBUGGING_LAYERS
-	vkLayerList.push_back("VK_LAYER_LUNARG_api_dump");
-	vkLayerList.push_back("VK_LAYER_LUNARG_core_validation");
-	vkLayerList.push_back("VK_LAYER_LUNARG_monitor");
-	vkLayerList.push_back("VK_LAYER_LUNARG_object_tracker");
-	vkLayerList.push_back("VK_LAYER_LUNARG_parameter_validation");
-	vkLayerList.push_back("VK_LAYER_GOOGLE_threading");
-	vkLayerList.push_back("VK_LAYER_GOOGLE_unique_objects");
+	//vkLayerList.push_back("VK_LAYER_LUNARG_api_dump");
+	//vkLayerList.push_back("VK_LAYER_LUNARG_core_validation");
+	//vkLayerList.push_back("VK_LAYER_LUNARG_monitor");
+	//vkLayerList.push_back("VK_LAYER_LUNARG_object_tracker");
+	//vkLayerList.push_back("VK_LAYER_LUNARG_parameter_validation");
+	//vkLayerList.push_back("VK_LAYER_GOOGLE_threading");
+	//vkLayerList.push_back("VK_LAYER_GOOGLE_unique_objects");
 	vkLayerList.push_back("VK_LAYER_LUNARG_standard_validation");
 #endif
 
@@ -452,7 +455,8 @@ void VkRenderer::initSwapChain()
 	swapChainCreateInfo.oldSwapchain			= VK_NULL_HANDLE;							// Useful during resizing.
 
 
-	vkCreateSwapchainKHR(vkDevice, &swapChainCreateInfo, nullptr, &vkSwapChain);
+	VkResult result = vkCreateSwapchainKHR(vkDevice, &swapChainCreateInfo, nullptr, &vkSwapChain);
+	assert(result == VK_SUCCESS);
 
 	vkGetSwapchainImagesKHR(vkDevice, vkSwapChain, &vkSwapChainImageCount, nullptr);
 }
@@ -724,6 +728,11 @@ uint32_t VkRenderer::getVkSurfaceHeight() const
 	return vkSurfaceHeight;
 }
 
+const BufferAllocator* VkRenderer::getBufferAllocator() const
+{
+	return m_bufferAllocatorPtr.get();
+}
+
 void VkRenderer::beginRender()
 {
 	vkAcquireNextImageKHR(vkDevice, vkSwapChain, UINT64_MAX, VK_NULL_HANDLE, vkSwapChainImageAvailable, &vkActiveSwapChainID);
@@ -799,52 +808,18 @@ VkShaderModule VkRenderer::createShaderModule(const std::string& spirvShaderFile
 	vertexShaderModuleCreateInfo.codeSize = static_cast<uint32_t>(spirvShaderSrc.size());
 	vertexShaderModuleCreateInfo.pCode = (uint32_t*)spirvShaderSrcCharPtr;
 
-	vkCreateShaderModule(vkDevice, &vertexShaderModuleCreateInfo, nullptr, &shaderModule);
+	VkResult result = vkCreateShaderModule(vkDevice, &vertexShaderModuleCreateInfo, nullptr, &shaderModule);
+	assert(result == VK_SUCCESS);
 
 	return shaderModule;
 }
 
 Buffer VkRenderer::createBuffer(VkBufferUsageFlags usageFlags, size_t bufferSize)
 {
-	Buffer buffer = {VK_NULL_HANDLE, VK_NULL_HANDLE};
-
-	uint32_t queueIndex = getVkGraphicsQueueFamilyIndex();
-
-	VkBufferCreateInfo bufferCreateInfo{};
-	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferCreateInfo.usage = usageFlags;
-	bufferCreateInfo.size = bufferSize;
-	bufferCreateInfo.queueFamilyIndexCount = 1;
-	bufferCreateInfo.pQueueFamilyIndices = &queueIndex;
-	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-	vkCreateBuffer(vkDevice, &bufferCreateInfo, nullptr, &buffer.vkBuffer);
-
-	VkMemoryRequirements bufferMemReqs{};
-	vkGetBufferMemoryRequirements(vkDevice, buffer.vkBuffer, &bufferMemReqs);
-
-	VkMemoryAllocateInfo bufferMemAllocInfo{};
-	bufferMemAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	bufferMemAllocInfo.allocationSize = bufferMemReqs.size;
-	bufferMemAllocInfo.memoryTypeIndex = FindVkMemoryTypeIndex(getVkPhysicalDeviceMemProperties(), bufferMemReqs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-	vkAllocateMemory(vkDevice, &bufferMemAllocInfo, nullptr, &buffer.vkBufferMemory);
-
-	vkBindBufferMemory(vkDevice, buffer.vkBuffer, buffer.vkBufferMemory, 0);
-
-	return buffer;
+	return m_bufferAllocatorPtr->createBuffer(bufferSize, usageFlags, { getVkGraphicsQueueFamilyIndex() });
 }
 
 void VkRenderer::destroyBuffer(Buffer buffer)
 {
-	if(buffer.vkBufferMemory != VK_NULL_HANDLE) 
-	{
-		vkFreeMemory(vkDevice, buffer.vkBufferMemory, nullptr);
-		buffer.vkBufferMemory = VK_NULL_HANDLE;
-	}
-
-	if (buffer.vkBuffer != VK_NULL_HANDLE)
-	{
-		vkDestroyBuffer(vkDevice, buffer.vkBuffer, nullptr);
-		buffer.vkBuffer = VK_NULL_HANDLE;
-	}
+	m_bufferAllocatorPtr->freeBuffer(buffer);
 }

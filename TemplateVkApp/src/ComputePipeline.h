@@ -4,6 +4,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include "Shader.h"
+
 class VkRenderer;
 
 class ComputePipeline
@@ -12,7 +14,7 @@ public:
 	ComputePipeline(
 		const VkRenderer& renderer,
 		const std::vector<VkDescriptorSetLayout>& descriptorLayouts,
-		VkPipelineShaderStageCreateInfo shaderStageCreateInfo
+		const ShaderStage& shaderStage
 	);
 
 	VkPipelineLayout getPipelineLayout();

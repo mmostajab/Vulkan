@@ -36,6 +36,8 @@ void Application::init(const unsigned int& width, const unsigned int& height)
 		exit(EXIT_FAILURE);
 	}
 
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
 	if (glfwVulkanSupported() == GLFW_TRUE) 
 	{
 		std::cout << "Vulkan is supported.\n";
@@ -107,7 +109,7 @@ void Application::init() {
 }
 
 void Application::create() {
-	MeshLoader meshLoader("../data/bunny.ply");
+	MeshLoader meshLoader("data/bunny.ply");
 	auto& vertices = meshLoader.vertices;
 	auto& indices = meshLoader.indices;
 	
@@ -146,14 +148,14 @@ void Application::create() {
 	// =============================
 	// Fill Vertex Buffer
 	// =============================
-	void* verticesData = nullptr;
-	vkMapMemory(renderer.getVkDevice(), vertexBuffer.vkBufferMemory, 0, VK_WHOLE_SIZE, 0, &verticesData);
+	void* verticesData = renderer.getBufferAllocator()->mapBuffer(vertexBuffer);
+	
 	for (size_t i = 0; i < vertices.size(); i++) {
 		PlyObjVertex& vertex = ((PlyObjVertex*)verticesData)[i];
 		vertex.pos		= vertices[i].position;
 		vertex.normal	= glm::normalize(vertices[i].normal);
 	}
-	vkUnmapMemory(renderer.getVkDevice(), vertexBuffer.vkBufferMemory);
+	renderer.getBufferAllocator()->unmapBuffer(vertexBuffer);
 
 	// ============================================
 	// Create Vulkan Buffer for the mesh indices
@@ -163,13 +165,12 @@ void Application::create() {
 	// =============================
 	// Fill Index Buffer
 	// =============================
-	void* indicesData = nullptr;
-	vkMapMemory(renderer.getVkDevice(), indexBuffer.vkBufferMemory, 0, VK_WHOLE_SIZE, 0, &indicesData);
+	void* indicesData = renderer.getBufferAllocator()->mapBuffer(indexBuffer);
 	for (size_t i = 0; i < indices.size(); i++) {
 		unsigned int& index = ((unsigned int*)indicesData)[i];
 		index = indices[i];
 	}
-	vkUnmapMemory(renderer.getVkDevice(), indexBuffer.vkBufferMemory);
+	renderer.getBufferAllocator()->unmapBuffer(indexBuffer);
 
 	this->nVertices = static_cast<uint32_t>(vertices.size());
 	this->nIndices = static_cast<uint32_t>(indices.size());
@@ -190,23 +191,14 @@ void Application::update(float time, float timeSinceLastFrame) {
 	//glm::mat4 projMatrix = glm::ortho(-1.0f, 1.0f, 1.0f, -1.0f, -20.0f, 20.0f);
 	glm::mat4 projMatrix = glm::perspectiveFov(glm::pi<float>() / 2.0f, (float)renderer.getVkSurfaceWidth(), (float)renderer.getVkSurfaceHeight(), 0.001f, 1000.0f);
 
-	void* trasnformations_ = nullptr;
-	vkMapMemory(renderer.getVkDevice(), transformationBuffer.vkBufferMemory, 0, VK_WHOLE_SIZE, 0, &trasnformations_);
-	
+	void* trasnformations_ = renderer.getBufferAllocator()->mapBuffer(transformationBuffer);
+
 	glm::mat4* transformations = (glm::mat4*)trasnformations_;
 	transformations[0] = projMatrix;
 	transformations[1] = viewMatrix;
 	transformations[2] = identity;
 
-	VkMappedMemoryRange memoryRange{};
-	memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-	memoryRange.memory = transformationBuffer.vkBufferMemory;
-	memoryRange.offset = 0;
-	memoryRange.size = VK_WHOLE_SIZE;
-	
-	vkFlushMappedMemoryRanges(renderer.getVkDevice(), 1, &memoryRange);
-
-	vkUnmapMemory(renderer.getVkDevice(), transformationBuffer.vkBufferMemory);
+	renderer.getBufferAllocator()->unmapBuffer(transformationBuffer);
 }
 
 void Application::draw(float elapsedTime, float elapsedSinceLastFrame) {
@@ -314,7 +306,7 @@ void Application::graphicsLoop(float elapsedTime, float elapsedSinceLastFrame)
 	viewport.y = 0;
 	viewport.width = static_cast<float>(renderer.getVkSurfaceWidth());
 	viewport.height = static_cast<float>(renderer.getVkSurfaceHeight());
-	viewport.minDepth = -1.0f;
+	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
 	VkRect2D scissor{};
@@ -329,9 +321,9 @@ void Application::graphicsLoop(float elapsedTime, float elapsedSinceLastFrame)
 	vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->getPipelineLayout(), 0, 1, &graphicsDescriptorSet, 0, nullptr);
 
 	VkDeviceSize noOffset = 0;
-
-	vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &vertexBuffer.vkBuffer, &noOffset);
-	vkCmdBindIndexBuffer(cmdBuffer, indexBuffer.vkBuffer, 0, VK_INDEX_TYPE_UINT32);
+	VkBuffer bufferToDraw[] = { vertexBuffer.getVkBuffer() };
+	vkCmdBindVertexBuffers(cmdBuffer, 0, sizeof(bufferToDraw) / sizeof(bufferToDraw[0]), bufferToDraw, &noOffset);
+	vkCmdBindIndexBuffer(cmdBuffer, indexBuffer.getVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
 	vkCmdDrawIndexed(cmdBuffer, nIndices, 1, 0, 0, 0);
 
@@ -403,12 +395,6 @@ void Application::shutdown() {
 	freeVkMemory();
 	deInitGraphicsDescriptor();
 	deInitComputeDescriptor();
-
-	// ==================================
-	// Free up the shaders
-	// ==================================
-	vkDestroyShaderModule(renderer.getVkDevice(), vertexShader,   nullptr);
-	vkDestroyShaderModule(renderer.getVkDevice(), fragmentShader, nullptr);
 
 	renderer.deInit();
 	glfwDestroyWindow(m_window);

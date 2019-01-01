@@ -1,5 +1,11 @@
 #include "helper.h"
 
+#if defined(_WIN32)
+	#include <windows.h>
+#else
+
+#endif
+
 std::string convertFileToString(const std::string& filename) {
 	std::ifstream ifile(filename, std::ios::binary);
 	if (!ifile) {
@@ -85,4 +91,34 @@ uint32_t FindVkMemoryTypeIndex(const VkPhysicalDeviceMemoryProperties & gpuMemPr
 
 	assert(vkMemTypeIndex != UINT32_MAX);
 	return vkMemTypeIndex;
+}
+
+bool executeCommand(char* cmd, const char* directory)
+{
+#if defined(_WIN32)
+
+	STARTUPINFO info = { sizeof(info) };
+	PROCESS_INFORMATION processInfo;
+	if (CreateProcessA(NULL, cmd, NULL, NULL, FALSE, 0, NULL, directory, &info, &processInfo))
+	{
+		WaitForSingleObject(processInfo.hProcess, INFINITE);
+		CloseHandle(processInfo.hProcess);
+		CloseHandle(processInfo.hThread);
+		return true;
+	}
+
+#else
+
+#error "not implemented";
+
+#endif
+
+	return false;
+}
+
+bool deleteFile(const char* path)
+{
+#if defined(_WIN32)
+	return DeleteFileA(path);
+#endif
 }

@@ -5,7 +5,7 @@
 ComputePipeline::ComputePipeline(
 	const VkRenderer& renderer,
 	const std::vector<VkDescriptorSetLayout>& descriptorLayouts,
-	VkPipelineShaderStageCreateInfo shaderStageCreateInfo): renderer(renderer)
+	const ShaderStage& shaderStage): renderer(renderer)
 {
 	// ============================
 	// Create Pipeline layout
@@ -23,6 +23,16 @@ ComputePipeline::ComputePipeline(
 	pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
 
 	vkCreatePipelineLayout(renderer.getVkDevice(), &pipelineLayoutCreateInfo, nullptr, &pipelineLayout);
+
+
+	VkPipelineShaderStageCreateInfo shaderStageCreateInfo;
+	shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shaderStageCreateInfo.pNext = VK_NULL_HANDLE;
+	shaderStageCreateInfo.flags = 0;
+	shaderStageCreateInfo.pSpecializationInfo = nullptr;
+	shaderStageCreateInfo.pName = shaderStage.getEntryFuncName();
+	shaderStageCreateInfo.module = shaderStage.getVkShaderModule();
+	shaderStageCreateInfo.stage = shaderStage.getVkShaderType();
 
 	// ============================
 	// Create Pipeline

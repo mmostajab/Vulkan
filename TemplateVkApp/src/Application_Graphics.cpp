@@ -42,7 +42,7 @@ void Application::initGraphicsDescriptor()
 void Application::updateGraphicsDescriptorSets()
 {
 	VkDescriptorBufferInfo descriptorBufferInfo{};
-	descriptorBufferInfo.buffer = transformationBuffer.vkBuffer;
+	descriptorBufferInfo.buffer = transformationBuffer.getVkBuffer();
 	descriptorBufferInfo.offset = 0;
 	descriptorBufferInfo.range = VK_WHOLE_SIZE;
 
@@ -73,8 +73,6 @@ void Application::initGraphicsPipeline()
 	// ======================================
 	// Load the precompiled shaders
 	// ======================================
-	vertexShader = renderer.createShaderModule("../shaders/vert.spv");
-	fragmentShader = renderer.createShaderModule("../shaders/frag.spv");
 
 	transformationBuffer = renderer.createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 3 * sizeof(glm::mat4));
 
@@ -83,25 +81,20 @@ void Application::initGraphicsPipeline()
 	// ============================
 	// Pipeline Preparation
 	// ============================
-	std::vector<VkPipelineShaderStageCreateInfo> shaderStagesCreateInfo(2);
-	shaderStagesCreateInfo[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	shaderStagesCreateInfo[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-	shaderStagesCreateInfo[0].module = vertexShader;
-	shaderStagesCreateInfo[0].pName = "main";
-	shaderStagesCreateInfo[0].pSpecializationInfo = nullptr;
+	ShaderStage vertexShader;
+	ShaderStage fragmentShader;
 
-	shaderStagesCreateInfo[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	shaderStagesCreateInfo[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	shaderStagesCreateInfo[1].module = fragmentShader;
-	shaderStagesCreateInfo[1].pName = "main";
-	shaderStagesCreateInfo[1].pSpecializationInfo = nullptr;
+	vertexShader.fromGLSLFile(renderer.getVkDevice(), "glsl/ply.vert", VK_SHADER_STAGE_VERTEX_BIT, "main");
+	assert(vertexShader.getVkShaderType() == VK_SHADER_STAGE_VERTEX_BIT);
+	fragmentShader.fromGLSLFile(renderer.getVkDevice(), "glsl/ply.frag", VK_SHADER_STAGE_FRAGMENT_BIT, "main");
+	assert(fragmentShader.getVkShaderType() == VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// position:
 	std::vector<VkVertexInputAttributeDescription> inputAttribDescription(2);
-	inputAttribDescription[0].binding = 0;
+	inputAttribDescription[0].binding  = 0;
 	inputAttribDescription[0].location = 0;
-	inputAttribDescription[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-	inputAttribDescription[0].offset = 0;
+	inputAttribDescription[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
+	inputAttribDescription[0].offset   = 0;
 
 	// normal:
 	inputAttribDescription[1].binding = 0;
@@ -117,7 +110,7 @@ void Application::initGraphicsPipeline()
 
 	graphicsPipeline =
 		std::unique_ptr<GraphicsPipeline>(
-			new GraphicsPipeline(renderer, { graphicsDescriptorSetLayout }, shaderStagesCreateInfo,
+			new GraphicsPipeline(renderer, { graphicsDescriptorSetLayout }, { vertexShader, fragmentShader },
 				inputAttribDescription, { inputBindingDescription }, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
 			);
 }
