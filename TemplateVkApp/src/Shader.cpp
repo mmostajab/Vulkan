@@ -116,12 +116,12 @@ const char * ShaderStage::getGLSLangValidatorShaderStage(VkShaderStageFlagBits s
 		case VK_SHADER_STAGE_GEOMETRY_BIT                :  return "geom" ;
 		case VK_SHADER_STAGE_FRAGMENT_BIT                :  return "frag" ;
 		case VK_SHADER_STAGE_COMPUTE_BIT                 :  return "comp" ;
-		case VK_SHADER_STAGE_RAYGEN_BIT_NVX              :	return "rgen" ;
-		case VK_SHADER_STAGE_ANY_HIT_BIT_NVX             :	return "rahit";
-		case VK_SHADER_STAGE_CLOSEST_HIT_BIT_NVX         :	return "rchit";
-		case VK_SHADER_STAGE_MISS_BIT_NVX                :	return "rmiss";
-		case VK_SHADER_STAGE_INTERSECTION_BIT_NVX        :	return "rint" ;
-		case VK_SHADER_STAGE_CALLABLE_BIT_NVX            :	return "rcall";
+		case VK_SHADER_STAGE_RAYGEN_BIT_NV               :	return "rgen" ;
+		case VK_SHADER_STAGE_ANY_HIT_BIT_NV              :	return "rahit";
+		case VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV          :	return "rchit";
+		case VK_SHADER_STAGE_MISS_BIT_NV                 :	return "rmiss";
+		case VK_SHADER_STAGE_INTERSECTION_BIT_NV         :	return "rint" ;
+		case VK_SHADER_STAGE_CALLABLE_BIT_NV             :	return "rcall";
 		case VK_SHADER_STAGE_TASK_BIT_NV                 :	return "task" ;
 		case VK_SHADER_STAGE_MESH_BIT_NV                 :	return "mesh" ;
 		default:
